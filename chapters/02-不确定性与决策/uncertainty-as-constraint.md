@@ -18,80 +18,11 @@
 
 **管理范式假设不确定性是本质的。** 在这个范式下，系统需要在不确定性存在的条件下正常工作。工程努力的方向不是消除不确定性，而是设计能容忍不确定性的架构：验证层、降级策略、冗余机制、人工回退——目标是让系统在 LLM 输出不完美的情况下依然可靠。
 
-这两种范式的区别不是学术性的，它导致截然不同的系统架构：
+这两种范式的区别不是学术性的，它导致截然不同的系统架构。
 
-```python
-from dataclasses import dataclass
-from typing import Optional, TypeVar, Generic
-from enum import Enum
+消除范式下的代码是简短的。LLM 返回什么就用什么，没有验证，没有降级，没有防护。当输出不符合预期时，工程师的反应是"prompt 还需要优化"——然后陷入永无止境的 prompt 调优循环。这个循环之所以永无止境，是因为它试图用战术手段解决一个本质性的约束：无论 prompt 写得多好，单次调用的输出在统计意义上永远是概率性的。把系统的正确性完全押注在 LLM 输出的确定性上，等于把房子建在一个从设计上就会晃动的地基上，然后反复粉刷墙面来"解决"裂缝问题。
 
-T = TypeVar("T")
-
-
-class DesignParadigm(Enum):
-    ELIMINATE = "eliminate"  # 试图消除不确定性
-    MANAGE = "manage"        # 在不确定性下设计可靠系统
-
-
-@dataclass(frozen=True)
-class EliminationApproach:
-    """
-    消除范式的典型做法。
-    
-    核心假设：通过足够的努力，LLM 的输出可以变得确定性。
-    问题：这个假设是错的。
-    """
-    strategy: str = "优化到完美"
-    
-    def handle_llm_output(self, output: str) -> str:
-        # 假设 LLM 的输出是正确的，直接使用
-        return output  # 没有验证，没有降级，没有防护
-    
-    def on_failure(self) -> str:
-        return "prompt 还需要优化"  # 永远在优化 prompt 的循环中
-
-
-@dataclass(frozen=True)
-class ManagementApproach(Generic[T]):
-    """
-    管理范式的典型做法。
-    
-    核心假设：LLM 的输出永远是概率性的，
-    系统的可靠性来自架构而非模型。
-    """
-    validator: object  # 输出验证器
-    fallback: T        # 降级方案
-    max_retries: int = 3
-    
-    def handle_llm_output(
-        self, 
-        output: str, 
-        parse_fn: object,
-        validate_fn: object,
-    ) -> tuple[T, dict]:
-        """
-        管理范式的输出处理流程：
-        1. 解析（结构层面）
-        2. 验证（语义层面）  
-        3. 失败时重试或降级
-        
-        每一步都假设上一步可能失败。
-        """
-        metadata = {"attempts": 0, "degraded": False}
-        
-        for attempt in range(self.max_retries):
-            metadata["attempts"] = attempt + 1
-            try:
-                parsed = parse_fn(output)
-                if validate_fn(parsed):
-                    return parsed, metadata
-            except Exception:
-                continue
-        
-        # 所有重试用尽，执行降级
-        metadata["degraded"] = True
-        return self.fallback, metadata
-```
+管理范式下的代码是更长的。它包含输出验证（结构层面和语义层面）、重试逻辑、降级方案、元数据追踪。每一步都假设上一步可能失败。LLM 的输出首先被解析，然后被验证，验证不通过则重试，重试耗尽则降级到一个确定性的兜底方案。整个流程返回的不仅是结果本身，还包括过程的元数据——尝试了几次、是否触发了降级——因为在不确定性环境下，"结果是怎么来的"和"结果是什么"同样重要。
 
 消除范式的代码简短，因为它不处理失败情况。管理范式的代码更长，但这个长度不是"过度工程"——它是不确定性环境下的必要工程量。
 
@@ -102,46 +33,38 @@ class ManagementApproach(Generic[T]):
 不确定性可以被形式化为一组约束条件：
 
 ```python
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class UncertaintyConstraints:
     """
     将不确定性形式化为系统设计的约束条件。
-    
+
     这些约束不是"坏事"——它们是问题空间的精确描述。
     好的架构是在这些约束下的最优解，
     而不是无视这些约束的理想化方案。
     """
-    
+
     # 单次调用的可靠性上限
     # 即使是最好的 prompt + 最好的模型，单次调用也有失败概率
     single_call_reliability: float  # 例如 0.95
-    
+
     # 输出变异性
     # 同一输入的多次调用，输出的一致性程度
     output_consistency: float  # 0.0（每次完全不同）到 1.0（每次完全相同）
-    
-    # 模型漂移速率
-    # 在代码不变的情况下，模型行为随时间变化的程度
-    model_drift_rate: str  # "none", "slow", "moderate", "rapid"
-    
-    # 失败模式的可预测性
-    # 失败是随机分布的，还是集中在特定类型的输入上
-    failure_predictability: str  # "random", "pattern-based", "unknown"
-    
+
     def cascade_reliability(self, n_steps: int) -> float:
         """n 步串联的系统可靠性。"""
         return self.single_call_reliability ** n_steps
-    
+
     def required_redundancy(self, target_reliability: float) -> int:
         """
         要达到目标可靠性，需要多少次独立调用（取最佳结果）。
-        
+
         假设 n 次独立调用，至少一次成功的概率：
         P(至少一次成功) = 1 - (1 - p)^n
-        
+
         解出 n: n = log(1 - target) / log(1 - p)
         """
         from math import ceil, log
@@ -149,7 +72,7 @@ class UncertaintyConstraints:
             return 1
         if self.single_call_reliability <= 0:
             return float("inf")
-        
+
         n = log(1 - target_reliability) / log(1 - self.single_call_reliability)
         return ceil(n)
 
@@ -158,15 +81,11 @@ class UncertaintyConstraints:
 classification_constraints = UncertaintyConstraints(
     single_call_reliability=0.92,
     output_consistency=0.85,
-    model_drift_rate="slow",
-    failure_predictability="pattern-based",
 )
 
 generation_constraints = UncertaintyConstraints(
     single_call_reliability=0.78,
     output_consistency=0.40,
-    model_drift_rate="moderate",
-    failure_predictability="random",
 )
 
 print("分类任务:")
@@ -198,10 +117,10 @@ from dataclasses import dataclass
 class UncertaintyBudget:
     """
     系统的不确定性预算。
-    
+
     类比财务预算：总预算是固定的，
     分配到各个环节的预算之和不能超过总预算。
-    
+
     如果系统能容忍 5% 的失败率（不确定性预算 = 0.05），
     而系统有 3 个 LLM 调用环节，
     那么每个环节分配到的失败率预算约为 1.7%
@@ -209,7 +128,7 @@ class UncertaintyBudget:
     """
     total_failure_budget: float  # 系统级可接受失败率
     n_uncertain_steps: int       # 系统中不确定性步骤的数量
-    
+
     @property
     def per_step_budget(self) -> float:
         """每个步骤分配到的失败率预算。"""
@@ -218,7 +137,7 @@ class UncertaintyBudget:
         # 独立步骤串联: (1 - per_step)^n = 1 - total
         # per_step = 1 - (1 - total)^(1/n)
         return 1 - (1 - self.total_failure_budget) ** (1 / self.n_uncertain_steps)
-    
+
     def is_feasible(self, step_reliabilities: list[float]) -> dict:
         """
         给定每个步骤的实际可靠性，
@@ -227,10 +146,10 @@ class UncertaintyBudget:
         system_reliability = 1.0
         for r in step_reliabilities:
             system_reliability *= r
-        
+
         actual_failure_rate = 1 - system_reliability
         within_budget = actual_failure_rate <= self.total_failure_budget
-        
+
         return {
             "system_reliability": round(system_reliability, 4),
             "actual_failure_rate": round(actual_failure_rate, 4),
@@ -279,13 +198,13 @@ def validated_llm_call(
 ) -> tuple[Optional[T], dict]:
     """
     验证-重试模式的实现。
-    
+
     核心逻辑：
     1. 调用 LLM
     2. 尝试将输出解析为目标类型
     3. 解析失败则重试（可选地修改 prompt）
     4. 超过重试次数则返回 None
-    
+
     这个模式有效的数学前提：
     如果单次失败率为 p，n 次独立重试后的失败率为 p^n。
     当 p=0.1, n=3 时，最终失败率为 0.001。
@@ -295,13 +214,13 @@ def validated_llm_call(
         "parse_errors": [],
         "success": False,
     }
-    
+
     current_prompt = prompt
     for attempt in range(max_retries):
         metadata["attempts"] = attempt + 1
-        
+
         raw_output = llm_call(current_prompt)
-        
+
         try:
             parsed = output_type.model_validate_json(raw_output)
             metadata["success"] = True
@@ -310,7 +229,7 @@ def validated_llm_call(
             metadata["parse_errors"].append(str(e))
             if modify_prompt_on_retry:
                 current_prompt = modify_prompt_on_retry(prompt, attempt + 1)
-    
+
     return None, metadata
 ```
 
@@ -327,15 +246,15 @@ T = TypeVar("T")
 class DegradationChain(Generic[T]):
     """
     降级链：从最高质量到最低质量的方案序列。
-    
+
     每个方案比前一个的质量低但可靠性高。
     系统按顺序尝试，直到某个方案成功。
-    
+
     这个模式的本质是：用质量的可控降级
     换取可用性的确定性保障。
     """
     strategies: list[tuple[str, Callable[..., Optional[T]]]]
-    
+
     def execute(self, *args, **kwargs) -> tuple[T, str]:
         """
         按降级优先级执行策略。
@@ -348,7 +267,7 @@ class DegradationChain(Generic[T]):
                     return result, name
             except Exception:
                 continue
-        
+
         raise RuntimeError(
             f"所有 {len(self.strategies)} 个降级策略都失败了。"
             "这意味着降级链的设计不够完备——"
@@ -400,7 +319,7 @@ class MajorityVoteResult(Generic[T]):
     votes: dict  # 每个选项的得票数
     total_votes: int
     agreement_ratio: float  # 最高票数 / 总票数
-    
+
 
 def majority_vote(
     call_fn: Callable[[], T],
@@ -409,23 +328,23 @@ def majority_vote(
 ) -> MajorityVoteResult[T]:
     """
     多数投票机制。
-    
+
     核心假设：LLM 的正确输出是高概率事件，
     错误输出是低概率且分散的。
     因此多次采样取众数可以提高可靠性。
-    
+
     这个假设在分类任务中通常成立，
     在生成任务中通常不成立（因为"正确"的生成不唯一）。
     """
     results = [call_fn() for _ in range(n_calls)]
     counter = Counter(str(r) for r in results)
-    
+
     winner_str, winner_count = counter.most_common(1)[0]
     agreement = winner_count / n_calls
-    
+
     # 找到原始对象
     winner = next(r for r in results if str(r) == winner_str)
-    
+
     return MajorityVoteResult(
         winner=winner,
         votes=dict(counter),
@@ -446,7 +365,7 @@ from dataclasses import dataclass
 class ReliabilityCostTradeoff:
     """
     可靠性与成本的权衡模型。
-    
+
     每一种提升可靠性的手段都有成本。
     工程决策是在给定预算下最大化可靠性，
     或在给定可靠性目标下最小化成本。
@@ -454,14 +373,14 @@ class ReliabilityCostTradeoff:
     base_reliability: float      # 单次调用的基础可靠性
     cost_per_call: float         # 单次调用的成本（美元）
     latency_per_call_ms: float   # 单次调用的延迟（毫秒）
-    
+
     def retry_cost(self, max_retries: int) -> dict:
         """重试策略的成本分析。"""
         # 期望调用次数 = sum(p_fail^k for k in range(max_retries)) 的逆
         p_fail = 1 - self.base_reliability
         expected_calls = sum(p_fail ** k for k in range(max_retries))
         effective_reliability = 1 - p_fail ** max_retries
-        
+
         return {
             "max_retries": max_retries,
             "effective_reliability": round(effective_reliability, 6),
@@ -470,7 +389,7 @@ class ReliabilityCostTradeoff:
             "expected_latency_ms": round(expected_calls * self.latency_per_call_ms, 1),
             "worst_case_latency_ms": max_retries * self.latency_per_call_ms,
         }
-    
+
     def voting_cost(self, n_votes: int) -> dict:
         """多数投票策略的成本分析。"""
         # 多数投票总是调用 n 次（并行）
@@ -482,7 +401,7 @@ class ReliabilityCostTradeoff:
             comb(n_votes, k) * p**k * (1-p)**(n_votes-k)
             for k in range(k_min, n_votes + 1)
         )
-        
+
         return {
             "n_votes": n_votes,
             "effective_reliability": round(reliability, 6),

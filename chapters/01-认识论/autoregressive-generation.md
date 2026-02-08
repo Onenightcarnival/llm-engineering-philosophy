@@ -39,24 +39,24 @@ def autoregressive_generate(
 ) -> list[int]:
     """
     自回归生成的核心循环。
-    
+
     这段代码不是伪代码，而是对真实推理过程的精确抽象。
     model_forward 接收 token 序列，返回词表上的 logits 向量。
     """
     rng = np.random.default_rng(seed)
     generated = list(prompt_tokens)
-    
+
     for _ in range(max_new_tokens):
         # 模型只看到目前为止的所有 token
         logits = model_forward(generated)  # shape: (vocab_size,)
-        
+
         # temperature 缩放：温度越低，分布越尖锐
         scaled_logits = logits / temperature
-        
+
         # softmax 转换为概率分布
         probs = np.exp(scaled_logits - np.max(scaled_logits))
         probs = probs / probs.sum()
-        
+
         # top-p (nucleus) 采样：只保留累积概率达到 top_p 的 token
         if top_p < 1.0:
             sorted_indices = np.argsort(probs)[::-1]
@@ -66,11 +66,11 @@ def autoregressive_generate(
             mask[sorted_indices[:cutoff_idx]] = True
             probs = np.where(mask, probs, 0.0)
             probs = probs / probs.sum()
-        
+
         # 从概率分布中采样一个 token
         next_token = rng.choice(len(probs), p=probs)
         generated.append(int(next_token))
-    
+
     return generated
 ```
 
@@ -112,38 +112,7 @@ p_i = exp(q_i / T) / sum_j(exp(q_j / T))
 
 **大模型对 prompt 的敏感性不是缺陷，是必然。** 由于每一步生成都以前面所有 token 为条件，prompt 的措辞变化——即便语义等价——会改变条件概率分布的形状。"请总结以下文本"和"对以下文本进行摘要"在语义上等价，但它们作为条件前缀，激活的是训练数据中不同的统计模式，因此可能引导出质量不同的续写。这就是序章中提到的"数值稳定性"问题在 LLM 领域的具象化：语义等价不等于行为等价。
 
-```python
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class GenerationTrace:
-    """
-    记录一次生成过程中每一步的概率分布信息。
-    这不是调试工具，是理解系统行为的必要手段。
-    """
-    prompt: str
-    steps: list["StepInfo"]
-    
-    def entropy_trajectory(self) -> list[float]:
-        """每一步的熵，反映模型在该步的"确定性"程度。"""
-        return [step.entropy for step in self.steps]
-    
-    def top_token_probability_trajectory(self) -> list[float]:
-        """每一步最高概率 token 的概率，反映模型的"信心"。"""
-        return [step.top_prob for step in self.steps]
-
-
-@dataclass(frozen=True)
-class StepInfo:
-    position: int
-    chosen_token: str
-    top_prob: float        # 最高概率 token 的概率
-    entropy: float         # 该步概率分布的熵
-    was_top_choice: bool   # 选中的 token 是否是概率最高的
-```
-
-这个数据结构的价值在于：它把生成过程从一个黑箱的"输入-输出"转化为一个可观测的轨迹。当系统输出不符合预期时，不是去猜"prompt 哪里写得不好"，而是去看轨迹中哪一步的熵突然升高（模型变得不确定），哪一步的选择偏离了 top-1（采样的随机性起了作用），哪一步开始出现"幻觉"的迹象。
+理解这种敏感性的前提是具备对生成过程的可观测性。自回归生成的每一步都产生一个完整的概率分布，从中可以提取关键信号：该步的熵（反映模型在这个位置的不确定程度）、top-1 token 的概率（反映模型对最优选择的"信心"）、实际被选中的 token 是否是概率最高的那个（区分确定性行为和采样随机性的贡献）。这些信号将生成过程从一个黑箱的"输入-输出"映射转化为一条可观测的轨迹。当系统输出不符合预期时，排查方向不再是笼统地猜测"prompt 哪里写得不好"，而是回到轨迹本身：哪一步的熵突然升高，说明模型在该位置遭遇了高度不确定性；哪一步的实际选择偏离了 top-1，说明采样的随机性在这里起了决定性作用；从哪一步开始出现事实性错误的迹象，说明此前的 token 序列已经将概率分布引向了"幻觉"的子空间。这种逐步的可追溯性，是将 LLM 应用从"试了才知道"推向工程化的基础设施之一。
 
 ## 自回归的计算代价结构
 
@@ -166,20 +135,20 @@ def estimate_generation_cost(
 ) -> dict:
     """
     估算一次生成的时间和成本。
-    
+
     这个粗略估算揭示的不是精确数字，
     而是代价结构的基本形状：输出长度是主要变量。
     """
     # 首次前向传播处理整个 prompt（prefill 阶段）
     prefill_time_ms = time_per_forward_ms * (prompt_tokens / 100)  # 近似
-    
+
     # 后续每个 token 一次前向传播（decode 阶段）
     decode_time_ms = time_per_forward_ms * max_output_tokens
-    
+
     total_time_ms = prefill_time_ms + decode_time_ms
     total_tokens = prompt_tokens + max_output_tokens
     total_cost = total_tokens / 1000 * cost_per_1k_tokens
-    
+
     return {
         "prefill_time_ms": round(prefill_time_ms, 1),
         "decode_time_ms": round(decode_time_ms, 1),

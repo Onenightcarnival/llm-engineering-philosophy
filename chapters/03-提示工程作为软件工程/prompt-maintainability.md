@@ -10,6 +10,14 @@
 
 把生产代码面临的经典可维护性挑战逐一映射到 prompt 上，会发现 prompt 不仅面临所有相同的问题，而且由于缺少编译器、类型检查器和 IDE 支持，每个问题的严重程度都被放大了。
 
+| 挑战 | 代码中的解决方案 | Prompt 现状 | 差距 |
+|------|----------------|------------|------|
+| 版本管理 | Git + 语义化版本 + diff + blame | 嵌入代码字符串或散落在配置文件中 | 缺少 prompt 专用的语义级 diff 工具，缺少 prompt 变更对输出影响的量化评估 |
+| 回归测试 | 单元测试 + 集成测试 + CI/CD | 手动运行几个案例看看效果 | 需要统计显著性检验而非简单的通过/失败判定，需要区分随机性和真实回归 |
+| 重构 | IDE 重命名、提取函数、类型检查 | 手动搜索替换，全凭记忆追踪依赖 | prompt 中的引用关系是语义层面的，没有工具能自动检测断裂的引用 |
+| 模块化 | 函数、类、模块、包 | 通常是一整段文本 | prompt 的分段拼接不等于模块化，各段之间通过注意力机制耦合，不像函数调用有清晰的接口隔离 |
+| 文档与可读性 | 注释、文档字符串、类型注解 | prompt 本身就是自然语言，看似不需要文档 | 意图和实际效果之间有语义鸿沟：写的是什么清楚，为什么这样写、改了哪个词会有什么影响没有记录 |
+
 **版本管理。** 代码有 Git，有 diff，有 blame，有 merge conflict 的解决机制。prompt 通常以字符串字面量嵌入在代码中，或者存储在配置文件甚至数据库里。它的变更历史经常不可追溯——谁在什么时候为什么改了这段 prompt？"把'请简短回答'改成了'请用不超过三句话回答'"这个变更看起来微不足道，但它可能在某些边界案例上导致输出质量的大幅波动。
 
 **回归测试。** 代码有单元测试和集成测试，改了一行代码可以立即知道是否破坏了现有功能。prompt 的修改没有这样的安全网。修改了 prompt 中的一个措辞，唯一的验证手段是重新运行整个 LLM 评估流程——这通常需要几分钟到几小时，而且由于 LLM 的概率性，即使 prompt 没有变化，两次运行的结果也可能不同。如何区分"prompt 变更导致的差异"和"LLM 固有的随机性"？这个问题在多数团队中没有被正式回答。
@@ -17,61 +25,6 @@
 **重构。** 代码有 IDE 的重构支持——重命名一个变量、提取一个函数、修改一个接口——工具会自动处理所有相关引用。prompt 没有这样的工具支持。一段 prompt 引用了系统中其他组件的输出（比如"根据上面的检索结果"），这种引用关系是隐式的、无法被工具追踪的。当被引用的组件变更了输出格式，prompt 的维护者可能完全不知道。
 
 **模块化。** 代码可以被分解为函数、类、模块，每个单元有清晰的接口和职责。prompt 通常是一个扁平的字符串，缺乏内部结构。当 prompt 增长到几百字甚至几千字时，它变成了一个"大泥球"——修改任何部分都可能影响其他部分，因为 LLM 的注意力机制不保证只关注 prompt 中与当前任务相关的部分。
-
-```python
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Optional
-
-
-@dataclass(frozen=True)
-class MaintainabilityChallenge:
-    """Prompt 可维护性挑战的结构化描述。"""
-    challenge: str
-    code_solution: str         # 传统代码中的解决方案
-    prompt_current_state: str  # Prompt 领域的现状
-    prompt_gap: str            # 差距分析
-
-
-CHALLENGES = [
-    MaintainabilityChallenge(
-        challenge="版本管理",
-        code_solution="Git + 语义化版本 + diff + blame",
-        prompt_current_state="嵌入代码字符串或散落在配置文件中",
-        prompt_gap="缺少 prompt 专用的 diff 工具（语义级别，而非字符级别），"
-                   "缺少 prompt 变更对输出影响的量化评估",
-    ),
-    MaintainabilityChallenge(
-        challenge="回归测试",
-        code_solution="单元测试 + 集成测试 + CI/CD",
-        prompt_current_state="手动运行几个案例看看效果",
-        prompt_gap="prompt 变更的回归测试需要区分随机性和真实回归，"
-                   "需要统计显著性检验而非简单的通过/失败判定",
-    ),
-    MaintainabilityChallenge(
-        challenge="重构",
-        code_solution="IDE 重命名、提取函数、类型检查",
-        prompt_current_state="手动搜索替换，全凭记忆追踪依赖",
-        prompt_gap="prompt 中的引用关系是语义层面的，"
-                   "没有工具能自动检测断裂的引用",
-    ),
-    MaintainabilityChallenge(
-        challenge="模块化",
-        code_solution="函数、类、模块、包",
-        prompt_current_state="通常是一整段文本",
-        prompt_gap="prompt 的分段拼接不等于模块化——"
-                   "各段之间的交互通过 LLM 的注意力机制耦合，"
-                   "不像函数调用那样有清晰的接口隔离",
-    ),
-    MaintainabilityChallenge(
-        challenge="文档与可读性",
-        code_solution="注释、文档字符串、类型注解",
-        prompt_current_state="prompt 本身就是自然语言，看似不需要文档",
-        prompt_gap="prompt 的意图和实际效果之间有语义鸿沟：写的是什么清楚，"
-                   "为什么这样写、改了哪个词会有什么影响——没有记录",
-    ),
-]
-```
 
 ## 没有编译器的世界
 
@@ -135,7 +88,7 @@ def regression_check(
 ) -> dict:
     """
     Schema 演进的回归检查。
-    
+
     用旧 schema 和新 schema 分别验证同一批 LLM 输出，
     量化 schema 变更对兼容性的影响。
     """
@@ -146,7 +99,7 @@ def regression_check(
         "both_pass": 0,
         "regression": 0,  # 旧通过新不通过 = 回归
     }
-    
+
     for output in llm_outputs:
         old_ok = True
         new_ok = True
@@ -154,12 +107,12 @@ def regression_check(
             old_schema.model_validate_json(output)
         except (ValidationError, Exception):
             old_ok = False
-            
+
         try:
             new_schema.model_validate_json(output)
         except (ValidationError, Exception):
             new_ok = False
-        
+
         if old_ok:
             results["old_schema_pass"] += 1
         if new_ok:
@@ -168,7 +121,7 @@ def regression_check(
             results["both_pass"] += 1
         if old_ok and not new_ok:
             results["regression"] += 1
-    
+
     return results
 ```
 
@@ -182,67 +135,13 @@ def regression_check(
 
 Prompt 领域存在大量不被意识到的技术债务。
 
-**隐性依赖债务。** 一段 prompt 可能隐式依赖于特定模型的行为特征。"在 GPT-4 上效果很好"的 prompt 在 Claude 上可能完全不同。"在 2024 年 3 月的模型版本上效果很好"的 prompt 在模型更新后可能退化。这些依赖没有被显式记录，当它们断裂时（模型升级、供应商切换），定位问题的成本极高。
+**隐性依赖债务。** 一段 prompt 可能隐式依赖于特定模型的行为特征。"在 GPT-4 上效果很好"的 prompt 在 Claude 上可能完全不同。"在 2024 年 3 月的模型版本上效果很好"的 prompt 在模型更新后可能退化。这些依赖没有被显式记录，当它们断裂时（模型升级、供应商切换），定位问题的成本极高。这类债务的检测难度极大——它通常只在模型切换或升级的瞬间暴露。应对的策略是将模型特异性行为封装在适配层中，让 prompt 的核心逻辑通过类型声明来表达，使其与具体模型解耦。
 
-**措辞依赖债务。** 经过反复调优的 prompt 往往有大量"因为某次实验发现这个措辞效果更好"的修改。这些修改的理由没有记录，效果没有被隔离验证。当需要修改 prompt 的其他部分时，维护者不敢动这些"祖传措辞"——因为不知道改了之后会不会破坏某些微妙的平衡。
+**措辞依赖债务。** 经过反复调优的 prompt 往往有大量"因为某次实验发现这个措辞效果更好"的修改。比如"请确保"被改成了"务必"，因为某次实验显示后者效果更好，但没有记录实验条件和样本量。这些修改的理由没有记录，效果没有被隔离验证。当需要修改 prompt 的其他部分时，维护者不敢动这些"祖传措辞"——因为不知道改了之后会不会破坏某些微妙的平衡。这类债务几乎不可见，因为它的存在证据就是"一个词的选择"，而这个选择背后的理由已经丢失了。解决之道是用声明式约束替代祈使句——`Field(min_length=1)` 比"请确保至少包含一项"更稳定，因为前者的语义是精确的、模型无关的。
 
-**上下文污染债务。** 随着 prompt 的迭代，新的指令被追加，旧的指令没有清理。prompt 中可能存在矛盾的指令（"请详细回答"和"请简短回答"同时出现在不同段落中），冗余的指令（同一个约束被用不同的措辞表达了三次），或者过时的指令（引用了不再存在的系统组件）。在传统代码中，死代码和矛盾逻辑会被编译器或 linter 检测到。在 prompt 中，这些问题默默地消耗注意力资源、增加 token 成本、并以不可预测的方式影响输出质量。
+**上下文污染债务。** 随着 prompt 的迭代，新的指令被追加，旧的指令没有清理。一段 prompt 可能从最初的 200 字增长到 1500 字，其中包含多段矛盾的格式要求、冗余的指令（同一个约束被用不同的措辞表达了三次），或者过时的指令（引用了不再存在的系统组件）。在传统代码中，死代码和矛盾逻辑会被编译器或 linter 检测到。在 prompt 中，这些问题默默地消耗注意力资源、增加 token 成本、并以不可预测的方式影响输出质量。这类债务的检测相对容易——prompt 的长度膨胀本身就是一个信号。治理手段是用 Pydantic 模型替代自然语言格式描述，确保每个约束有且仅有一个声明位置，消除重复和矛盾的可能性。
 
-```python
-from dataclasses import dataclass
-from enum import Enum
-
-
-class DebtType(Enum):
-    IMPLICIT_DEPENDENCY = "implicit_dependency"
-    WORDING_DEPENDENCY = "wording_dependency"
-    CONTEXT_POLLUTION = "context_pollution"
-    STRUCTURE_EROSION = "structure_erosion"
-
-
-@dataclass(frozen=True)
-class PromptDebt:
-    """Prompt 技术债务的结构化描述。"""
-    debt_type: DebtType
-    description: str
-    detection_difficulty: str  # "easy", "medium", "hard", "invisible"
-    remediation: str
-
-
-COMMON_DEBTS = [
-    PromptDebt(
-        debt_type=DebtType.IMPLICIT_DEPENDENCY,
-        description="prompt 在 GPT-4 上调优，切换到 Claude 后性能下降 15%",
-        detection_difficulty="hard",
-        remediation="将模型特异性行为封装在适配层中，"
-                    "prompt 的核心逻辑通过类型声明来表达（模型无关）",
-    ),
-    PromptDebt(
-        debt_type=DebtType.WORDING_DEPENDENCY,
-        description="'请确保' 被改成了 '务必' 因为某次实验显示后者效果更好，"
-                    "但没有记录实验条件和样本量",
-        detection_difficulty="invisible",
-        remediation="用声明式约束替代祈使句——"
-                    "Field(min_length=1) 比 '请确保至少包含一项' 更稳定",
-    ),
-    PromptDebt(
-        debt_type=DebtType.CONTEXT_POLLUTION,
-        description="prompt 从 200 字增长到 1500 字，"
-                    "其中包含多段矛盾的格式要求",
-        detection_difficulty="medium",
-        remediation="用 Pydantic 模型替代自然语言格式描述，"
-                    "每个约束有且仅有一个声明位置",
-    ),
-    PromptDebt(
-        debt_type=DebtType.STRUCTURE_EROSION,
-        description="最初清晰的 prompt 结构在多轮迭代后变成了'意大利面'，"
-                    "谁都不敢做大的修改",
-        detection_difficulty="easy",
-        remediation="定期将 prompt 重构为声明式定义，"
-                    "将结构逻辑从自然语言中提取到类型系统中",
-    ),
-]
-```
+**结构侵蚀债务。** 最初清晰的 prompt 结构在多轮迭代后变成了"意大利面"——谁都不敢做大的修改。每次小修补都在已有结构上打补丁，最终整段 prompt 变成了考古遗迹：每一层措辞都是某个历史阶段的产物，但没有人记得哪一层对应哪个需求。这类债务在表面上最容易被观察到——只要 prompt 读起来让人困惑，结构侵蚀就已经发生了。修复的方式是定期将 prompt 重构为声明式定义，将结构逻辑从自然语言中提取到类型系统中，让类型定义承担结构表达的职责，让自然语言只承担补充说明的角色。
 
 ## 将 Prompt 视为代码的工程实践
 
@@ -266,7 +165,7 @@ from typing import Optional
 class PromptMetadata:
     """
     为自然语言 prompt 附加工程元数据。
-    
+
     这个元数据不是给 LLM 看的，是给维护者看的。
     它将 prompt 的"隐性知识"显式化。
     """
@@ -274,21 +173,21 @@ class PromptMetadata:
     prompt_id: str
     version: str
     owner: str
-    
+
     # 生命周期
     created_date: date
     last_modified_date: date
     last_validated_date: Optional[date]
-    
+
     # 依赖
     target_models: tuple[str, ...]          # 在哪些模型上验证过
     depends_on: tuple[str, ...]             # 依赖的上游组件
     depended_by: tuple[str, ...]            # 下游消费者
-    
+
     # 质量
     validation_pass_rate: Optional[float]   # 最近一次评估的通过率
     known_failure_patterns: tuple[str, ...] # 已知的失败模式
-    
+
     # 决策记录
     design_decisions: tuple[str, ...] = field(default_factory=tuple)
 

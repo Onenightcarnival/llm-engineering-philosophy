@@ -29,7 +29,7 @@ class Outcome:
 class Decision:
     """
     一个工程决策的期望值模型。
-    
+
     用途不在于计算出精确的期望值——
     概率和价值的估计本身就有不确定性。
     用途在于迫使决策者把隐含的假设显式化：
@@ -40,27 +40,27 @@ class Decision:
     name: str
     outcomes: tuple[Outcome, ...]
     fixed_cost: float = 0.0  # 不管结果如何都要付出的成本
-    
+
     @property
     def expected_value(self) -> float:
         return sum(o.probability * o.value for o in self.outcomes) - self.fixed_cost
-    
+
     @property
     def variance(self) -> float:
         ev = self.expected_value + self.fixed_cost  # 不含固定成本的期望值
         return sum(
-            o.probability * (o.value - ev) ** 2 
+            o.probability * (o.value - ev) ** 2
             for o in self.outcomes
         )
-    
+
     @property
     def worst_case(self) -> float:
         return min(o.value for o in self.outcomes) - self.fixed_cost
-    
+
     @property
     def best_case(self) -> float:
         return max(o.value for o in self.outcomes) - self.fixed_cost
-    
+
     def probability_check(self) -> bool:
         """概率之和应为 1。"""
         total = sum(o.probability for o in self.outcomes)
@@ -112,21 +112,21 @@ from math import sqrt
 class RiskAdjustedDecision:
     """
     风险调整后的决策评估。
-    
+
     不仅看期望值（均值），
     还看方差（波动性）和尾部风险（极端情况）。
-    
+
     这和投资中的夏普比率思想是同一个数学结构：
     回报除以风险，得到单位风险的回报。
     """
     decision: Decision
     risk_aversion: float = 1.0  # 风险厌恶系数，越大越看重稳定性
-    
+
     @property
     def risk_adjusted_value(self) -> float:
         """
         风险调整后的价值 = 期望值 - 风险厌恶系数 * 标准差
-        
+
         这是均值-方差优化框架的简化版。
         风险厌恶系数反映决策者对波动性的容忍度：
         - risk_aversion = 0: 只看期望值（风险中性）
@@ -135,16 +135,16 @@ class RiskAdjustedDecision:
         """
         std = sqrt(self.decision.variance)
         return self.decision.expected_value - self.risk_aversion * std
-    
+
     @property
     def conditional_value_at_risk(self) -> float:
         """
         条件风险价值（CVaR）：最差 10% 情况下的期望损失。
-        
+
         这个指标比最差情况更有信息量，
         因为它不只看单个极端事件，
         而是看尾部区域的平均表现。
-        
+
         在工程语境中：不只问"最坏能坏到什么程度"，
         而是问"当事情出差错时，平均会有多差"。
         """
@@ -153,14 +153,14 @@ class RiskAdjustedDecision:
         cumulative_prob = 0.0
         cumulative_value = 0.0
         threshold = 0.10
-        
+
         for outcome in sorted_outcomes:
             if cumulative_prob >= threshold:
                 break
             weight = min(outcome.probability, threshold - cumulative_prob)
             cumulative_value += weight * outcome.value
             cumulative_prob += outcome.probability
-        
+
         if cumulative_prob > 0:
             return cumulative_value / min(cumulative_prob, threshold)
         return sorted_outcomes[0].value
@@ -213,7 +213,7 @@ from dataclasses import dataclass
 class EngineeringConstraints:
     """
     工程决策的约束条件集合。
-    
+
     约束不是负担——约束是问题的一部分。
     没有约束的优化问题要么无解，要么解是平凡的。
     约束越精确，解空间越小，决策越清晰。
@@ -224,7 +224,7 @@ class EngineeringConstraints:
     max_development_weeks: int
     team_size: int
     existing_competencies: tuple[str, ...]  # 团队已有的技术能力
-    
+
     def is_feasible(self, solution: "SolutionCandidate") -> dict:
         """检查一个方案是否满足所有约束。"""
         checks = {
@@ -262,11 +262,11 @@ def rank_solutions(
 ) -> list[dict]:
     """
     在约束条件下对方案排序。
-    
+
     流程：
     1. 过滤不可行的方案
     2. 对可行方案按期望值排序
-    
+
     这个简单的两步过程比大多数"直觉决策"更可靠，
     因为它不会被方案的"酷炫程度"或"技术新颖性"误导。
     """
@@ -279,12 +279,12 @@ def rank_solutions(
             "violated_constraints": feasibility["violated"],
             "expected_value": candidate.expected_value if feasibility["feasible"] else None,
         })
-    
+
     # 可行方案按期望值降序排列
     feasible = [r for r in results if r["feasible"]]
     infeasible = [r for r in results if not r["feasible"]]
     feasible.sort(key=lambda r: r["expected_value"], reverse=True)
-    
+
     return feasible + infeasible
 
 
@@ -345,26 +345,26 @@ from dataclasses import dataclass
 class BayesianDecision:
     """
     贝叶斯决策框架。
-    
+
     核心思想：决策不是一次性的，而是随着证据的积累不断更新。
     初始决策基于先验概率（经验、直觉、行业数据），
     每一个新的观测都通过贝叶斯更新修正这些概率。
-    
+
     这和投资中根据新信息调整仓位是同一个逻辑：
     不是固执于初始判断，也不是每一条消息都过度反应，
     而是按照信息的质量和数量有比例地更新信念。
     """
     hypothesis: str  # 例如："LLM 在这个任务上可靠性 > 95%"
     prior: float     # 先验概率
-    
+
     def update(self, evidence: str, likelihood_ratio: float) -> float:
         """
         贝叶斯更新。
-        
+
         posterior = prior * likelihood_ratio / normalizing_constant
-        
+
         likelihood_ratio = P(evidence | hypothesis) / P(evidence | not hypothesis)
-        
+
         > 1: 证据支持假设
         = 1: 证据与假设无关
         < 1: 证据反对假设
@@ -409,37 +409,7 @@ for evidence, lr in observations:
 
 现实比模型复杂。上面的模型假设结果之间是互斥的、概率是已知的、决策是一次性的。现实中，结果可能部分重叠，概率是不断变化的，决策是序列化的。模型的价值不在于精确预测现实，而在于提供一个比"拍脑袋"更好的思维框架。
 
-```python
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class FormalizationLimits:
-    """
-    形式化方法的局限性声明。
-    
-    诚实面对方法的局限，
-    本身就是数学训练带来的认识论态度。
-    """
-    what_it_does: str = (
-        "让隐含假设显式化，让模糊权衡可量化，"
-        "让主观判断可讨论、可修正"
-    )
-    what_it_does_not: str = (
-        "不提供客观答案，不消除判断的主观性，"
-        "不保证模型与现实的一致性"
-    )
-    when_most_useful: str = (
-        "当决策涉及多个维度的权衡时，"
-        "当团队成员对风险的直觉差异很大时，"
-        "当需要向非技术利益相关者解释技术决策时"
-    )
-    when_overkill: str = (
-        "当决策的后果很小、可逆性很高时——"
-        "直接做，然后根据反馈调整。"
-        "形式化的成本不应超过决策错误的成本"
-    )
-```
+总结而言，形式化的能力边界是清晰的：它让隐含假设显式化，让模糊权衡可量化，让主观判断可讨论、可修正。但它不提供客观答案，不消除判断的主观性，不保证模型与现实的一致性。形式化最有价值的场景是：决策涉及多个维度的权衡，团队成员对风险的直觉差异很大，或者需要向非技术利益相关者解释技术决策的逻辑。反过来，当决策的后果很小、可逆性很高时，形式化就是多余的——直接做，然后根据反馈调整。形式化的成本不应超过决策错误的成本。
 
 最后一条尤其重要：形式化分析本身也有成本。如果决策的后果是小的、可逆的（比如 prompt 的一个措辞调整），直接做实验比建模分析更高效。数学框架应该用在高影响、低可逆性的决策上——这些决策值得投入分析成本，因为错误的代价远高于分析的代价。
 

@@ -16,45 +16,9 @@
 
 这和数值计算中的一个原则形成对照：精确计算应该用精确方法。用浮点数近似来做需要整数精确结果的运算是工程错误，用统计模式匹配来做需要精确结果的运算同样是工程错误。
 
-```python
-def demonstrate_calculation_boundary():
-    """
-    展示精确计算应该由确定性代码而非 LLM 承担。
-    
-    这不是一个 LLM 的"缺陷展示"，
-    而是一个职责边界的设计原则演示。
-    """
-    
-    # 错误的设计：让 LLM 承担计算
-    # prompt = "计算 1847 * 923，直接给出数值结果"
-    # response = llm.call(prompt)  # 可能返回正确结果，也可能不
-    # 问题不在于准确率是 90% 还是 99%，
-    # 而在于对精确计算来说，任何低于 100% 的准确率都不可接受
-    
-    # 正确的设计：LLM 负责理解意图，确定性代码负责计算
-    class CalculationRequest:
-        """LLM 的职责是从自然语言中提取计算意图。"""
-        operation: str   # "multiply"
-        operand_a: float  # 1847
-        operand_b: float  # 923
-    
-    def execute_calculation(op: str, a: float, b: float) -> float:
-        """确定性代码的职责是执行精确计算。"""
-        operations = {
-            "multiply": lambda x, y: x * y,
-            "add": lambda x, y: x + y,
-            "subtract": lambda x, y: x - y,
-            "divide": lambda x, y: x / y if y != 0 else float("inf"),
-        }
-        return operations[op](a, b)
-    
-    # 1847 * 923 = 1,704,781
-    result = execute_calculation("multiply", 1847, 923)
-    assert result == 1_704_781  # 确定性，可断言
-    return result
-```
+由此产生的设计原则是职责分离：LLM 负责意图解析，确定性代码负责执行计算。当用户说"帮我算一下上个季度三个部门的总支出"时，LLM 的职责是从这句自然语言中提取出结构化的计算意图——哪些部门、哪个时间范围、什么运算。提取出的意图交给确定性代码执行：查询数据库、执行加法、返回精确结果。LLM 不接触计算本身，就像你不会让翻译员替你做算术——翻译员的价值在于理解你说的话，不在于帮你按计算器。
 
-工程推论：当系统中涉及精确计算时，正确的架构是让 LLM 负责意图解析（从自然语言中提取出"做什么运算、对什么操作数"），让确定性代码负责执行。这个分工不是权宜之计，是基于两种计算范式各自本质属性的合理设计。
+这个分工不是权宜之计，是基于两种计算范式各自本质属性的合理设计。概率性生成擅长处理模糊的自然语言，确定性执行擅长处理精确的数学运算。问题不在于 LLM 的计算准确率是 90% 还是 99%，而在于对精确计算来说，任何低于 100% 的准确率都不可接受。
 
 ## 状态维护
 
@@ -70,51 +34,9 @@ def demonstrate_calculation_boundary():
 
 **无副作用。** 真正的状态系统可以执行副作用：写入数据库、更新变量、触发事件。LLM 调用没有副作用——它只是生成一段文本。如果需要状态更新，必须由外部代码来完成。
 
-```python
-from dataclasses import dataclass, field
-from typing import Any, Optional
+这三个特征共同指向一个设计要求：LLM 应用中的状态管理必须是显式的、外部的、确定性的。LLM 不维护状态，状态由确定性代码维护，并在每次 LLM 调用时以结构化的形式注入上下文。
 
-
-@dataclass
-class ExplicitStateManager:
-    """
-    LLM 应用中的状态管理应该是显式的、外部的、确定性的。
-    
-    LLM 不维护状态。状态由确定性代码维护，
-    并在每次 LLM 调用时以结构化的形式注入上下文。
-    """
-    state: dict[str, Any] = field(default_factory=dict)
-    history: list[dict[str, str]] = field(default_factory=list)
-    
-    def update(self, key: str, value: Any) -> None:
-        """状态更新是确定性操作，不经过 LLM。"""
-        self.state[key] = value
-    
-    def build_context(self, max_history: int = 10) -> str:
-        """
-        将当前状态和最近的历史构造为上下文。
-        
-        关键设计决策：
-        1. 状态信息放在最前面（利用位置的注意力偏好）
-        2. 历史记录只保留最近的 n 条（防止上下文膨胀）
-        3. 状态是结构化的（而非自然语言描述）
-        """
-        state_section = "## 当前状态\n"
-        for k, v in self.state.items():
-            state_section += f"- {k}: {v}\n"
-        
-        recent_history = self.history[-max_history:]
-        history_section = "## 最近对话\n"
-        for entry in recent_history:
-            history_section += f"[{entry['role']}]: {entry['content']}\n"
-        
-        return f"{state_section}\n{history_section}"
-    
-    def add_exchange(self, user_input: str, assistant_output: str) -> None:
-        """记录一次对话交换。状态记录在 LLM 之外。"""
-        self.history.append({"role": "user", "content": user_input})
-        self.history.append({"role": "assistant", "content": assistant_output})
-```
+具体而言，这种显式状态管理遵循三个关键设计决策。第一，状态信息应该放在上下文的最前面，而非最后面。Transformer 的注意力机制对位置敏感，上下文开头和结尾的信息获得的注意力权重通常高于中间部分。将当前状态放在最前面，是利用这种注意力偏好来确保关键信息不被淹没。第二，历史记录应该限制在最近的 N 条，而非无限增长。上下文窗口是稀缺资源，用过期的历史对话填满它，等于用噪声稀释信号。一个合理的状态管理器应该有明确的淘汰策略，而不是天真地把所有历史都塞进上下文。第三，状态应该是结构化的，而非自然语言描述。"用户之前问过关于退款的问题，似乎比较着急"——这种自然语言状态描述对人类阅读者友好，但对 LLM 来说是噪声源。结构化的状态表示（键值对、枚举值、时间戳）比自然语言描述更精确、更紧凑、更不容易被误解。
 
 工程推论：任何需要跨调用状态维护的 LLM 应用，都必须有一个显式的、外部的状态管理层。依赖上下文窗口来"记住"状态，和依赖全局变量来管理状态一样脆弱——只是在 LLM 语境中，这种脆弱性更加难以调试。
 
@@ -134,49 +56,11 @@ class ExplicitStateManager:
 
 **内部一致性。** 在一次长输出中，模型可能在前半段和后半段给出矛盾的判断。这是因为自回归生成没有全局一致性约束——模型在每一步只优化"下一个 token 的概率"，而不是"整个输出的逻辑一致性"。
 
-```python
-from dataclasses import dataclass
+在确定性系统中，一致性是自动保证的——相同的计算路径必然产生相同的结果。在概率性系统中，一致性必须被显式检查和强制。这种检查可以从两个方向展开。
 
+对于跨调用一致性，核心手段是交叉验证：将同一个问题改写为多个语义等价但措辞不同的变体，分别提交给模型，然后比较响应之间的语义一致性。比较的方法不能是字符串匹配——措辞不同但含义一致的回答应该被视为一致。实际系统中通常使用嵌入向量的余弦相似度，或者用另一个 LLM 来判断两个回答是否语义等价。
 
-@dataclass(frozen=True)
-class ConsistencyCheck:
-    """
-    一致性检查的结构。
-    
-    在确定性系统中，一致性是自动保证的——相同的计算路径必然产生相同的结果。
-    在概率性系统中，一致性必须被显式检查和强制。
-    """
-    claim_a: str
-    claim_b: str
-    relationship: str  # "equivalent", "contradictory", "independent"
-    
-    @staticmethod
-    def check_cross_call_consistency(
-        prompt_variants: list[str],
-        responses: list[str],
-    ) -> dict[str, float]:
-        """
-        对语义等价的 prompt 变体，
-        检查响应之间的一致性程度。
-        
-        返回值中的 consistency_score 反映的是
-        "不同措辞的同一个问题，是否得到了一致的回答"。
-        """
-        # 在实际系统中，这里会用嵌入向量的余弦相似度
-        # 或另一个 LLM 来判断语义一致性
-        n_pairs = len(responses) * (len(responses) - 1) // 2
-        if n_pairs == 0:
-            return {"consistency_score": 1.0, "n_pairs_checked": 0}
-        
-        # 占位：实际实现需要语义相似度计算
-        return {
-            "n_variants": len(prompt_variants),
-            "n_responses": len(responses),
-            "n_pairs_checked": n_pairs,
-            "consistency_score": -1.0,  # 需要实际计算
-            "note": "一致性检查需要语义相似度度量，不能用字符串匹配",
-        }
-```
+对于内部一致性，需要的是逻辑规则检查：从模型的单次输出中提取关键断言，检查这些断言之间是否存在逻辑矛盾。这种检查通常不能由同一个 LLM 来做（原因见下文"可靠的自我评估"一节），而需要基于规则的验证逻辑或独立的检查模型。
 
 工程推论：当系统对一致性有要求时（比如合同生成、医疗建议、财务报告），不能依赖 LLM 的内在一致性，而必须在系统层面实施一致性检查。可能的手段包括：对关键判断进行多次采样取多数票、用逻辑规则检查输出的内部一致性、对同一个问题的不同措辞进行交叉验证。这些都是成本换可靠性的工程权衡。
 
@@ -213,10 +97,10 @@ FRAGILE_PROMPT = """
 class SentimentAnalysis(BaseModel):
     """
     类型定义本身就是最精确的 prompt。
-    
+
     这个类的定义比上面的 8 条自然语言约束更精确、更可验证、
     更不容易被模型"误解"。
-    
+
     更重要的是：即使模型的输出有偏差，
     Pydantic 的验证器会在解析时捕获违规，
     而自然语言约束的违规只能通过事后检查发现。
@@ -270,24 +154,24 @@ class ResponseGenerator(Protocol):
 class HybridSystem:
     """
     混合架构：LLM 处理模糊性，确定性代码处理精确性。
-    
+
     这不是一个"用 LLM 的地方少一点"的保守策略，
     而是一个让每个组件做自己最擅长的事的合理分工。
     """
     intent_parser: IntentParser        # LLM
     business_logic: BusinessLogic      # 确定性代码
     response_generator: ResponseGenerator  # LLM
-    
+
     def handle_request(self, user_input: str) -> str:
         # 第一步：LLM 将模糊的自然语言转化为精确的结构化意图
         intent = self.intent_parser.parse(user_input)
-        
+
         # 第二步：确定性代码执行精确的业务逻辑
         result = self.business_logic.execute(intent)
-        
+
         # 第三步：LLM 将精确的结构化结果转化为友好的自然语言
         response = self.response_generator.generate(result)
-        
+
         return response
 ```
 

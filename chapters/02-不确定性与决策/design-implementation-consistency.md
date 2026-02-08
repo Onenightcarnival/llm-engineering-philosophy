@@ -8,11 +8,13 @@
 
 然而，在实际的 LLM 应用开发中，以下情况反复出现：
 
-团队明知应该先用 10 行 Python 验证 LLM 在目标任务上的基本表现，却花了两周搭建了一个"完整的评估框架"——然后发现 LLM 在这个任务上根本不可行，两周的工作全部废弃。
+团队明知应该先用 10 行 Python 验证 LLM 在目标任务上的基本表现，却花了两周搭建了一个"完整的评估框架"——然后发现 LLM 在这个任务上根本不可行，两周的工作全部废弃。纠正方式很简单：强制约束第一个迭代不超过 50 行代码，任何框架和基础设施的引入需要证明当前的痛点，而非预防未来的痛点。
 
-团队明知应该选择最简单的架构（一个 LLM 调用 + Pydantic 验证），却引入了一个编排框架、一个向量数据库、一个 Agent 循环——因为"万一后面需要呢"。三个月后发现 80% 的功能从未被使用，但维护成本已经不可逆地增加了。
+团队明知一个 prompt 策略已经优化了 30 个版本且效果停滞，却继续优化第 31 个版本。纠正方式同样简单：预设止损规则，连续 3 个版本无显著提升（低于 2%），立即升级到架构层面的解决方案。已经投入的时间是沉没成本，不应影响下一步决策。
 
-团队明知应该为 LLM 输出设置验证层，却在时间压力下跳过了这一步——"先上线，后面再加"。上线后发现 LLM 偶尔输出的格式错误导致下游系统崩溃，修复的成本比当初加验证层高出一个数量级。
+团队明知当前的简单方案满足 90% 的需求，却引入编排框架来处理剩余 10% 的边缘情况。三个月后发现 80% 的功能从未被使用，但维护成本已经不可逆地增加了。纠正方式是量化权衡：引入框架的维护成本与手动处理 10% 边缘情况的成本，如果后者更低，接受它。
+
+团队明知应该为 LLM 输出添加验证层，却在时间压力下跳过了这一步——"先上线，后面再加"。上线后发现 LLM 偶尔输出的格式错误导致下游系统崩溃，修复的成本比当初加验证层高出一个数量级。纠正方式是将验证层视为系统的必要组件，而非可选的增强。就像不会跳过数据库输入的参数化查询一样，不应该跳过 LLM 输出的结构化验证。
 
 这些不是知识的缺失，是执行的偏差。知行分裂。
 
@@ -27,70 +29,6 @@
 **从众心理。** "大家都在用 LangChain"成为技术选型的理由。"主流做法是用 RAG"成为架构决策的依据。但"大家都在做"不等于"适合你的场景"。在投资中，当所有人都在追逐同一个方向时，往往意味着最大的风险已经积累。在工程中，当所有人都在用同一个框架时，往往意味着最大的维护成本正在积累。
 
 **恐惧驱动的过度设计。** "万一将来需要怎么办"是过度设计的标准借口。在投资中，这等价于为了防范极小概率事件而牺牲大量确定性收益。在工程中，这等价于为了应对假想的需求而增加真实的复杂度。YAGNI（You Ain't Gonna Need It）原则在 LLM 领域尤其重要——技术变化如此快速，为当前不存在的需求做的设计很可能在需求出现之前就被淘汰了。
-
-```python
-from dataclasses import dataclass
-from enum import Enum
-
-
-class CognitiveBias(Enum):
-    COMPLEXITY_PREFERENCE = "complexity_preference"
-    SUNK_COST = "sunk_cost"
-    HERD_BEHAVIOR = "herd_behavior"
-    FEAR_DRIVEN_OVERDESIGN = "fear_driven_overdesign"
-
-
-@dataclass(frozen=True)
-class KnowDoGap:
-    """
-    知行分裂的结构化描述。
-    
-    每一个实例都包含：
-    - 知道应该做什么
-    - 实际做了什么
-    - 背后的心理机制
-    - 纠正的方法
-    """
-    what_you_know: str
-    what_you_do: str
-    bias: CognitiveBias
-    correction: str
-
-
-COMMON_GAPS = [
-    KnowDoGap(
-        what_you_know="应该先用最小代码验证核心假设",
-        what_you_do="花两周搭建了完整的评估和部署基础设施",
-        bias=CognitiveBias.COMPLEXITY_PREFERENCE,
-        correction="强制约束：第一个迭代不超过 50 行代码。"
-                   "任何框架和基础设施的引入需要证明当前的痛点，"
-                   "而非预防未来的痛点。",
-    ),
-    KnowDoGap(
-        what_you_know="这个 prompt 策略已经优化了 30 个版本，效果停滞",
-        what_you_do="继续优化第 31 个版本",
-        bias=CognitiveBias.SUNK_COST,
-        correction="预设止损规则：连续 3 个版本无显著提升（< 2%），"
-                   "立即升级到架构层面的解决方案。"
-                   "已经投入的时间是沉没成本，不应影响下一步决策。",
-    ),
-    KnowDoGap(
-        what_you_know="当前的简单方案满足 90% 的需求",
-        what_you_do="引入编排框架来处理剩余 10% 的边缘情况",
-        bias=CognitiveBias.FEAR_DRIVEN_OVERDESIGN,
-        correction="量化权衡：引入框架的维护成本 vs 手动处理 10% 边缘情况的成本。"
-                   "如果后者更低，接受它。",
-    ),
-    KnowDoGap(
-        what_you_know="应该为 LLM 输出添加验证层",
-        what_you_do="跳过验证直接使用输出，因为'大部分时候是对的'",
-        bias=CognitiveBias.HERD_BEHAVIOR,
-        correction="把验证层视为系统的必要组件，而非可选的增强。"
-                   "就像不会跳过数据库输入的参数化查询一样，"
-                   "不应该跳过 LLM 输出的结构化验证。",
-    ),
-]
-```
 
 ## 纪律性作为工程能力
 
@@ -108,92 +46,7 @@ COMMON_GAPS = [
 
 **机制三：定期止损审查。** 每两周对正在进行的工作做一次止损审查：这个方向的基本假设还成立吗？已经投入的成本是否影响了判断的客观性？如果今天从零开始，还会做同样的选择吗？最后一个问题是识别沉没成本谬误的最有效工具。
 
-```python
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Optional
-
-
-@dataclass
-class EngineeringDisciplineCheckpoint:
-    """
-    工程纪律检查点。
-    
-    在关键决策节点强制执行的检查。
-    不是官僚流程，是防止知行分裂的机制。
-    """
-    checkpoint_name: str
-    created_at: datetime = field(default_factory=datetime.now)
-    
-    # 预设决策规则
-    success_criteria: str = ""
-    stop_loss_criteria: str = ""
-    max_iterations: int = 5
-    current_iteration: int = 0
-    
-    # 简化约束
-    max_code_lines: Optional[int] = None
-    allowed_dependencies: tuple[str, ...] = ()
-    
-    def check_stop_loss(self, current_metric: float, target_metric: float) -> dict:
-        """
-        检查是否应该止损。
-        
-        这个检查不需要人工判断——
-        它是在决策制定时就确定好的规则的机械执行。
-        """
-        self.current_iteration += 1
-        should_stop = self.current_iteration >= self.max_iterations
-        metric_met = current_metric >= target_metric
-        
-        if metric_met:
-            return {
-                "action": "proceed",
-                "reason": f"目标达成: {current_metric:.2%} >= {target_metric:.2%}",
-            }
-        
-        if should_stop:
-            return {
-                "action": "stop_and_escalate",
-                "reason": (
-                    f"已达到最大迭代次数 {self.max_iterations}，"
-                    f"当前指标 {current_metric:.2%} 未达到目标 {target_metric:.2%}。"
-                    "停止当前层面的优化，升级到架构层面重新评估。"
-                ),
-                "sunk_cost_reminder": (
-                    f"已投入 {self.current_iteration} 轮迭代。"
-                    "这是沉没成本，不应影响下一步决策。"
-                ),
-            }
-        
-        return {
-            "action": "continue",
-            "reason": (
-                f"第 {self.current_iteration}/{self.max_iterations} 轮，"
-                f"当前 {current_metric:.2%}，目标 {target_metric:.2%}"
-            ),
-            "remaining_budget": self.max_iterations - self.current_iteration,
-        }
-
-
-# 使用示例：prompt 优化的纪律化管理
-prompt_optimization = EngineeringDisciplineCheckpoint(
-    checkpoint_name="客服意图分类 prompt 优化",
-    success_criteria="分类准确率 >= 92%",
-    stop_loss_criteria="5 轮优化后未达标则重新评估方案",
-    max_iterations=5,
-)
-
-# 模拟 5 轮优化
-accuracy_trajectory = [0.85, 0.88, 0.89, 0.895, 0.90]
-for accuracy in accuracy_trajectory:
-    result = prompt_optimization.check_stop_loss(accuracy, target_metric=0.92)
-    print(f"轮次 {prompt_optimization.current_iteration}: "
-          f"准确率 {accuracy:.1%} -> {result['action']}")
-    if result["action"] == "stop_and_escalate":
-        print(f"  {result['reason']}")
-        print(f"  {result['sunk_cost_reminder']}")
-```
+这三个机制不是理论上的建议，它们是可以立即落地的操作。以 prompt 优化为例：设定目标准确率 92%，最多迭代 5 轮。第一轮 85%，第二轮 88%，第三轮 89%，第四轮 89.5%，第五轮 90%——触发止损。5 轮迭代后准确率依然未达标，继续在 prompt 层面打磨的边际收益已经趋近于零。正确的动作不是开始第六轮优化，而是升级到架构层面重新评估：是否需要引入 few-shot 示例、是否需要拆分任务、是否需要换一种建模方式。已经投入的 5 轮迭代是沉没成本，不应该成为"再试一轮"的理由。
 
 ## 设计与实现的结构性一致
 
@@ -207,98 +60,19 @@ for accuracy in accuracy_trajectory:
 
 **设计说"系统不依赖特定模型"，实现中到处是特定模型的行为假设。** 设计文档声称架构是模型无关的，但 prompt 中充满了针对特定模型调优的措辞，输出解析中充满了针对特定模型输出格式的硬编码。模型一换，到处都崩。
 
-```python
-from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+检测这种漂移的方法是定期做设计-实现一致性审计。做法并不复杂：从设计文档中提取出所有明确的承诺，逐一对照实际代码检查是否兑现。以一个典型的 LLM 应用为例，对照设计文档的五项承诺检查实际代码：
 
+- LLM 输出经过 Pydantic 结构验证——已实现。
+- LLM 输出经过语义一致性检查——未实现。
+- 失败时降级到规则引擎——已实现。
+- 降级路径有独立的测试覆盖——未实现。
+- 系统不硬编码特定模型的行为假设——未实现。
 
-@runtime_checkable
-class DesignContract(Protocol):
-    """
-    设计契约的接口。
-    
-    将设计文档中的承诺转化为可检查的代码接口。
-    如果实现不满足接口，类型检查器会报错——
-    而不是等到生产环境出问题。
-    """
-    
-    def validate_output(self, raw_output: str) -> bool:
-        """设计承诺：所有 LLM 输出经过验证。"""
-        ...
-    
-    def degrade_gracefully(self, error: Exception) -> str:
-        """设计承诺：失败时有降级方案。"""
-        ...
-    
-    def is_model_agnostic(self) -> bool:
-        """设计承诺：不依赖特定模型。"""
-        ...
-
-
-@dataclass
-class DesignImplementationAudit:
-    """
-    设计-实现一致性审计。
-    
-    定期检查实际代码是否满足设计文档中的承诺。
-    不是形式主义——是防止知行分裂的工程工具。
-    """
-    design_promises: list[str]
-    implementation_status: dict[str, bool]
-    
-    @property
-    def consistency_score(self) -> float:
-        if not self.design_promises:
-            return 1.0
-        fulfilled = sum(
-            1 for p in self.design_promises 
-            if self.implementation_status.get(p, False)
-        )
-        return fulfilled / len(self.design_promises)
-    
-    @property
-    def gaps(self) -> list[str]:
-        return [
-            p for p in self.design_promises
-            if not self.implementation_status.get(p, False)
-        ]
-    
-    def report(self) -> str:
-        lines = [f"设计-实现一致性: {self.consistency_score:.0%}"]
-        if self.gaps:
-            lines.append("未兑现的设计承诺:")
-            for gap in self.gaps:
-                lines.append(f"  - {gap}")
-        return "\n".join(lines)
-
-
-# 审计示例
-audit = DesignImplementationAudit(
-    design_promises=[
-        "LLM 输出经过 Pydantic 结构验证",
-        "LLM 输出经过语义一致性检查",
-        "失败时降级到规则引擎",
-        "降级路径有独立的测试覆盖",
-        "系统不硬编码特定模型的行为假设",
-    ],
-    implementation_status={
-        "LLM 输出经过 Pydantic 结构验证": True,
-        "LLM 输出经过语义一致性检查": False,
-        "失败时降级到规则引擎": True,
-        "降级路径有独立的测试覆盖": False,
-        "系统不硬编码特定模型的行为假设": False,
-    },
-)
-
-print(audit.report())
-# 设计-实现一致性: 40%
-# 未兑现的设计承诺:
-#   - LLM 输出经过语义一致性检查
-#   - 降级路径有独立的测试覆盖
-#   - 系统不硬编码特定模型的行为假设
-```
+五项承诺兑现了两项，一致性得分 40%。
 
 40% 的一致性分数意味着系统的实际可靠性远低于设计文档暗示的水平。这种漂移不会在功能测试中被发现——功能在正常情况下能工作。它会在异常情况下暴露——而异常情况恰恰是可靠性设计要覆盖的场景。
+
+这种审计不需要复杂的工具，一张清单就够了。但它必须是定期的、强制的，而不是"有空的时候看一眼"。漂移的本质是渐进的：每一次单独的妥协看起来都是合理的，但妥协的累积效应是设计意图被侵蚀殆尽。
 
 ## 最小可行纪律
 

@@ -25,107 +25,18 @@
 
 如果你的架构建立在不变的基本假设之上，模型的变化只影响战术层面（换哪个模型、调哪些参数），不影响战略层面（系统怎么设计、可靠性怎么保障）。如果模型的变化摧毁了你的系统，说明你的架构不是建立在第一性原理上，而是建立在特定模型的特定行为上——这本身就是一个需要修正的架构缺陷。
 
-```python
-from dataclasses import dataclass
-from enum import Enum
+架构所依赖的假设可以按层级分为三类：
 
+| 假设类型 | 含义 | 是否抵御模型变化 | 示例 |
+|---|---|---|---|
+| 基本假设（Fundamental） | 基于机制的推论，源自自回归生成的结构性属性 | 是 | LLM 输出需要结构化验证——无论用 GPT-4 还是 Claude，输出都可能不符合预期格式 |
+| 基本假设（Fundamental） | 概率论的数学约束，不因工程实现而改变 | 是 | 多步串联会降低系统可靠性——概率的乘法规则不因模型升级而失效 |
+| 基本假设（Fundamental） | 形式化方法的普适性，不依赖于特定模型 | 是 | 类型系统可以约束输出空间——Pydantic 验证对任何模型的输出都有效 |
+| 经验假设（Empirical） | 基于观测的统计规律，可能随模型版本变化 | 不一定 | 模型 X 在 JSON 输出上的格式遵从率大于 95%——GPT-4 和 GPT-4o 的遵从率可能不同 |
+| 经验假设（Empirical） | 基于实验的效果判断，新模型可能改变结论 | 不一定 | few-shot 示例对分类任务的提升幅度约 10%——更强的模型可能在 zero-shot 下就足够好 |
+| 偶然假设（Contingent） | 基于特定实现的具体行为，随时可能变化 | 否 | 某个 prompt 模板在 GPT-4-0613 上有效但在 GPT-4-1106 上失效 |
 
-class AssumptionType(Enum):
-    FUNDAMENTAL = "fundamental"  # 基于机制的，不随模型版本变化
-    EMPIRICAL = "empirical"      # 基于经验的，可能随模型版本变化
-    CONTINGENT = "contingent"    # 基于特定实现的，随时可能变化
-
-
-@dataclass(frozen=True)
-class ArchitecturalAssumption:
-    """
-    系统架构所依赖的假设。
-    
-    区分假设的层级是应对变化的关键：
-    如果你的架构只依赖 FUNDAMENTAL 假设，
-    它就能抵御任何模型层面的变化。
-    """
-    description: str
-    assumption_type: AssumptionType
-    survives_model_change: bool
-    example: str
-
-
-ASSUMPTIONS = [
-    # 基本假设：不随模型变化
-    ArchitecturalAssumption(
-        description="LLM 输出需要结构化验证",
-        assumption_type=AssumptionType.FUNDAMENTAL,
-        survives_model_change=True,
-        example="无论用 GPT-4 还是 Claude，输出都可能不符合预期格式",
-    ),
-    ArchitecturalAssumption(
-        description="多步串联会降低系统可靠性",
-        assumption_type=AssumptionType.FUNDAMENTAL,
-        survives_model_change=True,
-        example="概率论的乘法规则不因模型升级而失效",
-    ),
-    ArchitecturalAssumption(
-        description="类型系统可以约束输出空间",
-        assumption_type=AssumptionType.FUNDAMENTAL,
-        survives_model_change=True,
-        example="Pydantic 验证对任何模型的输出都有效",
-    ),
-    
-    # 经验假设：可能随模型变化
-    ArchitecturalAssumption(
-        description="模型 X 在 JSON 输出上的格式遵从率 > 95%",
-        assumption_type=AssumptionType.EMPIRICAL,
-        survives_model_change=False,
-        example="GPT-4 的 JSON 遵从率和 GPT-4o 的可能不同",
-    ),
-    ArchitecturalAssumption(
-        description="few-shot 示例对分类任务的提升幅度约 10%",
-        assumption_type=AssumptionType.EMPIRICAL,
-        survives_model_change=False,
-        example="更强的模型可能在 zero-shot 下就足够好",
-    ),
-    
-    # 偶然假设：随时可能变化
-    ArchitecturalAssumption(
-        description="特定 prompt 模板在特定模型上的精确行为",
-        assumption_type=AssumptionType.CONTINGENT,
-        survives_model_change=False,
-        example="某个 prompt 在 GPT-4-0613 上有效但在 GPT-4-1106 上失效",
-    ),
-]
-
-
-def architecture_resilience_score(assumptions: list[ArchitecturalAssumption]) -> dict:
-    """
-    评估架构对模型变化的抗性。
-    
-    依赖越多的 FUNDAMENTAL 假设，架构越有韧性。
-    依赖越多的 CONTINGENT 假设，架构越脆弱。
-    """
-    counts = {t: 0 for t in AssumptionType}
-    for a in assumptions:
-        counts[a.assumption_type] += 1
-    
-    total = len(assumptions)
-    fundamental_ratio = counts[AssumptionType.FUNDAMENTAL] / total if total > 0 else 0
-    
-    return {
-        "total_assumptions": total,
-        "fundamental": counts[AssumptionType.FUNDAMENTAL],
-        "empirical": counts[AssumptionType.EMPIRICAL],
-        "contingent": counts[AssumptionType.CONTINGENT],
-        "resilience_ratio": round(fundamental_ratio, 2),
-        "verdict": (
-            "高韧性" if fundamental_ratio > 0.7
-            else "中等韧性" if fundamental_ratio > 0.4
-            else "脆弱——高度依赖特定模型行为"
-        ),
-    }
-
-
-print(architecture_resilience_score(ASSUMPTIONS))
-```
+架构的韧性取决于它依赖的假设处于哪个层级。一个架构的基本假设占比越高，它对外部变化的抵抗力就越强。如果你的系统在设计时自觉地将基本假设与经验假设、偶然假设区分开来，并且只在架构层面依赖基本假设，那么模型升级、API 变更、框架重构这些"恐慌事件"就只能触及你系统的表层——需要调整的是参数和配置，而不是架构和设计。反过来，如果一个系统的架构深度耦合于特定模型的特定行为模式（偶然假设），那么任何模型层面的变化都可能导致系统级的连锁失败。
 
 ## 恐慌创造机会
 
@@ -143,71 +54,9 @@ print(architecture_resilience_score(ASSUMPTIONS))
 
 框架焦虑的解毒方式是区分框架提供的能力和你的系统真正需要的能力。
 
-```python
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True)
-class FrameworkDependencyAnalysis:
-    """
-    分析系统对框架的依赖程度。
-    
-    框架的价值 = 它帮你解决的问题 - 它引入的耦合。
-    如果这个差值为负，用框架就是净损失。
-    """
-    framework_name: str
-    features_used: tuple[str, ...]
-    features_available: tuple[str, ...]
-    custom_code_around_framework: int  # 为适配框架写的粘合代码行数
-    core_logic_lines: int              # 核心业务逻辑的代码行数
-    
-    @property
-    def utilization_ratio(self) -> float:
-        """框架功能的利用率。低利用率意味着过度依赖。"""
-        if not self.features_available:
-            return 0.0
-        return len(self.features_used) / len(self.features_available)
-    
-    @property
-    def coupling_ratio(self) -> float:
-        """粘合代码与核心逻辑的比率。高比率意味着框架引入了额外复杂性。"""
-        if self.core_logic_lines == 0:
-            return float("inf")
-        return self.custom_code_around_framework / self.core_logic_lines
-    
-    @property
-    def verdict(self) -> str:
-        if self.utilization_ratio < 0.2 and self.coupling_ratio > 0.5:
-            return (
-                "框架引入的复杂性大于它解决的问题。"
-                "考虑用纯 Python 替代。"
-            )
-        if self.utilization_ratio > 0.6 and self.coupling_ratio < 0.3:
-            return "框架使用合理，提供了有价值的抽象。"
-        return "需要更细致的评估。"
-
-
-# 一个常见的真实场景
-typical_langchain_usage = FrameworkDependencyAnalysis(
-    framework_name="LangChain",
-    features_used=("LLM wrapper", "prompt template", "output parser"),
-    features_available=(
-        "LLM wrapper", "prompt template", "output parser",
-        "chains", "agents", "memory", "callbacks",
-        "document loaders", "text splitters", "vector stores",
-        "retrievers", "tools", "evaluation",
-    ),
-    custom_code_around_framework=200,
-    core_logic_lines=150,
-)
-
-print(f"框架: {typical_langchain_usage.framework_name}")
-print(f"功能利用率: {typical_langchain_usage.utilization_ratio:.0%}")
-print(f"耦合比率: {typical_langchain_usage.coupling_ratio:.1f}")
-print(f"评估: {typical_langchain_usage.verdict}")
-```
-
 多数 LLM 应用实际使用的框架功能不超过 20%——一个 LLM 调用封装、一个 prompt 模板、一个输出解析器。这三个功能用纯 Python 实现大约需要 50 行代码。为了这 50 行代码的便利，引入了一个数万行的依赖、一个不稳定的 API 表面、一个你无法完全控制的抽象层。
+
+以 LangChain 为例。它提供了十几个模块级能力：LLM 封装、prompt 模板、输出解析器、链式调用、Agent、记忆管理、回调系统、文档加载器、文本分割器、向量存储、检索器、工具集成、评估框架。一个典型的 LLM 应用只用到其中三个——LLM 封装、prompt 模板、输出解析器。功能利用率不到 25%。与此同时，为了适配框架的抽象模型，你通常还要写大量的粘合代码：自定义的 Chain 子类、回调钩子、输出格式转换。这些粘合代码的行数往往超过核心业务逻辑本身。框架的价值等于它帮你解决的问题减去它引入的耦合。当粘合代码的复杂度超过它所替代的原始实现时，这个差值就变成了负数。
 
 当框架发生破坏性变更时，恐慌的根源不是技术变化本身，而是过度耦合。如果你的核心逻辑不依赖于框架的内部实现，框架的变更就只影响薄薄的一层适配代码。
 
@@ -222,88 +71,11 @@ print(f"评估: {typical_langchain_usage.verdict}")
 - **在炒作高点保持怀疑。** 当所有人都在说"Agent 是未来"时，问：Agent 解决了什么问题？[第一章](../01-认识论/determinism-vs-probability.md)证明的级联可靠性约束是否因为 Agent 框架的出现而被绕过了？如果没有，Agent 的价值边界在哪里？
 - **在幻灭低点发现价值。** 当所有人都在说"RAG 效果不行"时，问：是 RAG 的架构思想有问题，还是具体实现不够好？如果问题在实现层面，改进实现就够了，不需要否定整个方向。
 
-```python
-from dataclasses import dataclass
-from enum import Enum
+以 Agent 为例。2024-2025 年间，Agent 处于炒作的顶峰。它试图解决的问题是真实的：复杂任务确实需要多步推理和工具调用。但当前的 Agent 框架系统性地高估了 LLM 的规划能力，忽略了级联可靠性约束。一个 10 步的 Agent 工作流，即使每步 95% 可靠，系统可靠性也只有 60%。在这个约束被架构层面解决之前，复杂 Agent 的可靠性不会令人满意。炒作高点叠加方案与问题的不匹配，意味着幻灭期必然到来。正确的逆向操作不是拒绝 Agent，而是谨慎投入——承认问题的真实性，同时对当前方案保持清醒的判断。
 
+RAG 则处于相反的位置。经历了一轮炒作之后，"RAG 效果不行"的论调开始蔓延。但回到第一性原理：LLM 的知识截止和幻觉问题不会消失，用外部检索补充模型知识的方向是正确的。当前的幻灭主要来自实现层面——检索质量差、分块策略粗糙、排序不精准——而非架构思想的失败。问题真实、方向正确、市场情绪低迷，这恰恰是加大投入的最佳时机。正确的做法是改进实现，而非放弃方向。
 
-class HypeCyclePhase(Enum):
-    TRIGGER = "trigger"               # 新概念出现
-    PEAK_EXPECTATIONS = "peak"        # 过度期望
-    DISILLUSIONMENT = "trough"        # 幻灭
-    ENLIGHTENMENT = "slope"           # 务实回升
-    PRODUCTIVITY = "plateau"          # 成熟期
-
-
-@dataclass(frozen=True)
-class TechTrendAssessment:
-    """
-    对一个技术趋势的逆向评估。
-    
-    核心问题不是"这个技术火不火"，
-    而是"这个技术解决的问题是否真实存在，
-    以及它的解决方式是否在第一性原理上站得住"。
-    """
-    technology: str
-    current_phase: HypeCyclePhase
-    underlying_problem: str
-    problem_is_real: bool
-    solution_matches_problem: bool
-    first_principles_assessment: str
-    
-    @property
-    def contrarian_action(self) -> str:
-        """逆向操作建议。"""
-        if self.current_phase == HypeCyclePhase.PEAK_EXPECTATIONS:
-            if not self.solution_matches_problem:
-                return "保持距离。炒作高点 + 方案不匹配 = 即将崩塌。"
-            return "谨慎投入。问题是真实的，但当前方案可能需要修正。"
-        
-        if self.current_phase == HypeCyclePhase.DISILLUSIONMENT:
-            if self.problem_is_real and self.solution_matches_problem:
-                return "加大投入。幻灭期的低估 + 真实问题 = 最佳布局时机。"
-            return "继续观望。问题不够真实或方案不匹配。"
-        
-        return "按常规评估。"
-
-
-# 2024-2025 时间段的技术趋势评估
-agent_assessment = TechTrendAssessment(
-    technology="LLM Agent（自主决策的 AI 代理）",
-    current_phase=HypeCyclePhase.PEAK_EXPECTATIONS,
-    underlying_problem="复杂任务需要多步推理和工具调用",
-    problem_is_real=True,
-    solution_matches_problem=False,  # 当前的 Agent 框架高估了 LLM 的规划能力
-    first_principles_assessment=(
-        "问题是真实的，但当前方案忽略了级联可靠性约束。"
-        "一个 10 步的 Agent 工作流，即使每步 95% 可靠，"
-        "系统可靠性也只有 60%。在这个约束被架构层面解决之前，"
-        "复杂 Agent 的可靠性不会令人满意。"
-    ),
-)
-
-rag_assessment = TechTrendAssessment(
-    technology="RAG（检索增强生成）",
-    current_phase=HypeCyclePhase.DISILLUSIONMENT,
-    underlying_problem="LLM 的知识有截止日期且可能编造",
-    problem_is_real=True,
-    solution_matches_problem=True,  # 用外部知识补充 LLM 的方向是对的
-    first_principles_assessment=(
-        "问题是真实的（LLM 的知识截止和幻觉问题不会消失），"
-        "解决方向是对的（用外部检索补充模型知识）。"
-        "当前的幻灭主要来自实现层面的问题"
-        "（检索质量差、分块策略粗糙、排序不精准），"
-        "不是架构思想的问题。正确的做法是改进实现，而非放弃方向。"
-    ),
-)
-
-for assessment in [agent_assessment, rag_assessment]:
-    print(f"[{assessment.technology}]")
-    print(f"  当前阶段: {assessment.current_phase.value}")
-    print(f"  逆向建议: {assessment.contrarian_action}")
-    print(f"  第一性原理: {assessment.first_principles_assessment}")
-    print()
-```
+两个案例的对比揭示了逆向思维的核心方法：不是简单地"别人恐慌我贪婪"，而是通过第一性原理区分"问题是否真实"和"方案是否匹配"，然后根据当前的市场情绪位置做出非对称的决策。
 
 ## 建立反脆弱的技术判断力
 

@@ -26,80 +26,15 @@
 - 测试是基于分布的：输出分布的统计性质是否在可接受范围内。
 - 调试是基于统计的：输出质量下降了，是分布本身变了还是采样运气不好？
 
-```python
-from dataclasses import dataclass
-from typing import Callable, TypeVar, Generic
-import hashlib
+这两种系统的差异不只是程度上的，而是范畴上的。确定性函数 f(x) = y 的可复现性是 trivial 的——调用一万次还是同一个结果，调用一次就够了。但 LLM 调用 f(x) ~ P(Y|x) 的单次输出只是输出分布的一个样本。基于单次输出做出的判断——"这个 prompt 有效"或"这个 prompt 无效"——在统计上是无意义的，正如对一次掷骰子的结果下结论不能告诉你骰子是否公平。
 
-T = TypeVar("T")
-U = TypeVar("U")
+这里有一个在实践中被广泛忽视的数学约束。假设你想确认一个 LLM 系统的错误率是否低于某个阈值 p，容许的误差为 E，在置信水平 1-alpha 下，所需的最少试验次数由二项分布的正态近似给出：
 
+n >= z^2 * p * (1-p) / E^2
 
-@dataclass(frozen=True)
-class DeterministicCall(Generic[T, U]):
-    """
-    确定性函数调用的模型。
-    核心性质：相同输入 -> 相同输出，永远如此。
-    """
-    func: Callable[[T], U]
-    input: T
-    
-    def execute(self) -> U:
-        return self.func(self.input)
-    
-    def is_reproducible(self, n_trials: int = 100) -> bool:
-        """确定性函数的可复现性是 trivial 的。"""
-        results = [self.func(self.input) for _ in range(n_trials)]
-        return len(set(str(r) for r in results)) == 1
+其中 z 是置信水平对应的 z-score（95% 置信对应 z=1.96）。取 p=0.05（即期望错误率 5%），允许 20% 的相对误差（E=0.01），代入计算得 n >= 1.96^2 * 0.05 * 0.95 / 0.01^2 = 72.99，即至少需要约 73 次调用。为保证正态近似的有效性，实际样本量不应低于 30。
 
-
-@dataclass(frozen=True)
-class ProbabilisticCall:
-    """
-    LLM 调用的模型。
-    核心性质：相同输入 -> 输出分布。单次调用是一次采样。
-    """
-    prompt: str
-    model: str
-    temperature: float
-    
-    def single_output_is_meaningless(self) -> str:
-        """
-        对概率性系统的单次输出下结论，
-        和对一次掷骰子的结果下结论一样不可靠。
-        """
-        return (
-            "单次 LLM 调用的输出只是输出分布的一个样本。"
-            "基于单次输出做出的判断（'这个 prompt 有效' / '这个 prompt 无效'）"
-            "在统计上是无意义的。"
-        )
-    
-    def minimum_trials_for_confidence(
-        self, 
-        acceptable_error_rate: float,
-        confidence_level: float = 0.95,
-    ) -> int:
-        """
-        要以给定的置信水平判断错误率是否低于某个阈值，
-        至少需要多少次调用。
-        
-        基于二项分布的正态近似：
-        n >= z^2 * p * (1-p) / E^2
-        其中 z 是置信水平对应的 z-score，
-        p 是估计的错误率，E 是可接受的误差。
-        """
-        from math import ceil
-        z_scores = {0.90: 1.645, 0.95: 1.96, 0.99: 2.576}
-        z = z_scores.get(confidence_level, 1.96)
-        p = acceptable_error_rate
-        E = acceptable_error_rate * 0.2  # 允许 20% 的相对误差
-        if E == 0:
-            return 1000  # 兜底
-        n = ceil(z**2 * p * (1 - p) / E**2)
-        return max(n, 30)  # 至少 30 次，确保正态近似成立
-```
-
-这段代码中 `minimum_trials_for_confidence` 方法揭示了一个在实践中被广泛忽视的事实：对 LLM 系统的评估需要统计显著性。"我试了几次效果不错"不构成有效的评估。如果期望的错误率是 5%，要在 95% 的置信水平下确认这一点，至少需要约 73 次调用。这是统计学的硬约束，不因工程师的时间压力而改变。
+"我试了几次效果不错"不构成有效的评估。73 次是统计学的硬约束，不因工程师的时间压力而改变。
 
 ## 哪些工程原则失效了
 
@@ -124,23 +59,23 @@ def test_summary_properties(output: SummaryOutput, source_text: str) -> dict[str
     """
     基于属性的测试：不检查输出等于什么，
     检查输出是否满足一组必要属性。
-    
+
     每个检查都是一个必要条件，不是充分条件。
     但必要条件的交集可以构成一个有意义的质量约束。
     """
     return {
         # 结构属性：类型系统已经保证
         "valid_structure": True,  # Pydantic 解析成功即满足
-        
+
         # 长度属性：摘要不应比原文长
         "shorter_than_source": len(output.summary) < len(source_text),
-        
+
         # 信息保留属性：关键点中的实体应出现在原文中
         "key_points_grounded": all(
             any(word in source_text.lower() for word in point.lower().split() if len(word) > 3)
             for point in output.key_points
         ),
-        
+
         # 一致性属性：标题和摘要不应自相矛盾
         # （这个检查是近似的，精确检查需要另一个 LLM 调用）
         "title_summary_overlap": any(
@@ -178,10 +113,10 @@ T = TypeVar("T")
 class ValidatedOutput(Generic[T]):
     """
     LLM 输出的验证包装器。
-    
+
     核心思想：LLM 的输出永远不应该被直接信任，
     必须经过显式验证后才能进入下游处理。
-    
+
     这和数据库输入的消毒（sanitization）是同一类实践，
     只是验证的维度从"安全性"扩展到了"语义正确性"。
     """
@@ -189,11 +124,11 @@ class ValidatedOutput(Generic[T]):
     is_valid: bool
     validation_checks: dict[str, bool]
     confidence: Optional[float] = None  # 如果有模型自报的置信度
-    
+
     @property
     def failed_checks(self) -> list[str]:
         return [k for k, v in self.validation_checks.items() if not v]
-    
+
     def unwrap_or_raise(self) -> T:
         """只有通过所有验证的输出才能被解包使用。"""
         if not self.is_valid:
@@ -201,7 +136,7 @@ class ValidatedOutput(Generic[T]):
                 f"LLM 输出未通过验证。失败的检查项: {self.failed_checks}"
             )
         return self.value
-    
+
     def unwrap_or_default(self, default: T) -> T:
         """未通过验证时返回默认值，而不是使用不可靠的输出。"""
         return self.value if self.is_valid else default
@@ -226,18 +161,18 @@ def cascading_reliability(
 ) -> dict[str, float]:
     """
     多步 LLM 调用的级联可靠性。
-    
+
     假设各步独立（实际上通常不独立，但独立假设提供了一个下界），
     n 步串联的系统可靠性 = 单步可靠性的 n 次方。
-    
+
     这个简单的计算解释了为什么复杂的 Agent 编排
     比单次 LLM 调用脆弱得多。
     """
     system_reliability = step_reliability ** n_steps
-    
+
     # 要达到 99% 的系统可靠性，单步需要多高的可靠性？
     required_step_reliability = 0.99 ** (1 / n_steps)
-    
+
     return {
         "step_reliability": step_reliability,
         "n_steps": n_steps,
