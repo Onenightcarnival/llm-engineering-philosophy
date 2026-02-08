@@ -24,7 +24,7 @@
 
 从命令式到声明式的范式跃迁，"Code as Prompt"的核心主张。提示工程不是手艺，是软件工程的一个分支。
 
-- [Declarative Chain-of-Thought: Engineering Principles of Code as Prompt](Declarative%20Chain-of-Thought_%20Engineering%20Principles%20of%20Code%20as%20Prompt.md)
+- [Declarative Chain-of-Thought: Engineering Principles of Code as Prompt](chapters/03-提示工程作为软件工程/declarative-chain-of-thought.md)
 
 ### [第四章 类型系统与契约](chapters/04-类型系统与契约/README.md)
 
