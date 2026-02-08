@@ -1,0 +1,291 @@
+# 确定性与概率性的根本张力
+
+## 六十年的隐含假设
+
+软件工程从诞生之日起就建立在一个假设上：程序的行为是确定性的。
+
+这个假设如此基础，以至于很少有人把它当作假设来审视——它更像是空气，存在但不被注意。测试方法论假设它：给定相同的输入，程序应该产生相同的输出，否则就是 bug。调试方法论假设它：bug 是可复现的，因此可以通过逐步缩小范围来定位。形式化验证假设它：程序的行为可以用数学证明来保障。版本控制假设它：代码的变更和行为的变更之间存在因果关系——如果行为变了，一定是因为代码变了。
+
+即便在引入了并发、分布式系统、最终一致性之后，这个假设也没有真正被打破。并发带来的不确定性是调度层面的：线程的执行顺序不确定，但每个线程内部的行为仍然是确定性的。分布式系统的"不确定性"本质上是信息延迟：系统最终会收敛到一致状态，只是你在某个时间点可能看到的是过期数据。最终一致性不是语义不确定性——数据库不会"创造"一条你从未写入的记录。
+
+大模型打破的恰恰是语义层面的确定性。LLM 的输出不是计算的结果，而是采样的结果。同一个 prompt 的两次调用可能返回不同的内容，而且两个不同的内容可能都是"正确"的。这不是实现上的缺陷，不是可以通过更好的工程来消除的噪声——这是概率性生成器的本质属性。
+
+## 确定性系统与概率性系统的范畴差异
+
+将这个差异精确化，需要区分两个不同的概念：行为的确定性和输出的正确性。
+
+在确定性系统中：
+- 行为是确定性的：f(x) = y，永远如此。
+- 正确性是二值的：输出要么对，要么错。
+- 测试是基于等价的：actual == expected。
+- 调试是基于因果的：行为变了，找到导致变化的原因。
+
+在概率性系统中：
+- 行为是随机的：f(x) ~ P(Y|x)，每次调用从这个分布中采样。
+- 正确性是程度的：输出在一个质量谱上，从"完美"到"可接受"到"不可接受"。
+- 测试是基于分布的：输出分布的统计性质是否在可接受范围内。
+- 调试是基于统计的：输出质量下降了，是分布本身变了还是采样运气不好？
+
+```python
+from dataclasses import dataclass
+from typing import Callable, TypeVar, Generic
+import hashlib
+
+T = TypeVar("T")
+U = TypeVar("U")
+
+
+@dataclass(frozen=True)
+class DeterministicCall(Generic[T, U]):
+    """
+    确定性函数调用的模型。
+    核心性质：相同输入 -> 相同输出，永远如此。
+    """
+    func: Callable[[T], U]
+    input: T
+    
+    def execute(self) -> U:
+        return self.func(self.input)
+    
+    def is_reproducible(self, n_trials: int = 100) -> bool:
+        """确定性函数的可复现性是 trivial 的。"""
+        results = [self.func(self.input) for _ in range(n_trials)]
+        return len(set(str(r) for r in results)) == 1
+
+
+@dataclass(frozen=True)
+class ProbabilisticCall:
+    """
+    LLM 调用的模型。
+    核心性质：相同输入 -> 输出分布。单次调用是一次采样。
+    """
+    prompt: str
+    model: str
+    temperature: float
+    
+    def single_output_is_meaningless(self) -> str:
+        """
+        对概率性系统的单次输出下结论，
+        和对一次掷骰子的结果下结论一样不可靠。
+        """
+        return (
+            "单次 LLM 调用的输出只是输出分布的一个样本。"
+            "基于单次输出做出的判断（'这个 prompt 有效' / '这个 prompt 无效'）"
+            "在统计上是无意义的。"
+        )
+    
+    def minimum_trials_for_confidence(
+        self, 
+        acceptable_error_rate: float,
+        confidence_level: float = 0.95,
+    ) -> int:
+        """
+        要以给定的置信水平判断错误率是否低于某个阈值，
+        至少需要多少次调用。
+        
+        基于二项分布的正态近似：
+        n >= z^2 * p * (1-p) / E^2
+        其中 z 是置信水平对应的 z-score，
+        p 是估计的错误率，E 是可接受的误差。
+        """
+        from math import ceil
+        z_scores = {0.90: 1.645, 0.95: 1.96, 0.99: 2.576}
+        z = z_scores.get(confidence_level, 1.96)
+        p = acceptable_error_rate
+        E = acceptable_error_rate * 0.2  # 允许 20% 的相对误差
+        if E == 0:
+            return 1000  # 兜底
+        n = ceil(z**2 * p * (1 - p) / E**2)
+        return max(n, 30)  # 至少 30 次，确保正态近似成立
+```
+
+这段代码中 `minimum_trials_for_confidence` 方法揭示了一个在实践中被广泛忽视的事实：对 LLM 系统的评估需要统计显著性。"我试了几次效果不错"不构成有效的评估。如果期望的错误率是 5%，要在 95% 的置信水平下确认这一点，至少需要约 73 次调用。这是统计学的硬约束，不因工程师的时间压力而改变。
+
+## 哪些工程原则失效了
+
+确定性假设的打破，不是让所有传统工程原则都失效了，而是让特定的原则需要被重新解释或替换。
+
+**单元测试的经典范式失效了。** `assert f(x) == expected` 这个模式假设存在唯一的正确输出。对 LLM 来说，不存在。替代方案不是放弃测试，而是改变测试的范式：从断言等价转向断言属性。输出的格式是否正确？是否包含必要的信息？是否在长度限制内？是否通过了事实核查？这些属性检查每一个都不能完全保证质量，但组合起来可以构建一个有意义的质量围栏。这是第七章的核心议题。
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+
+class SummaryOutput(BaseModel):
+    """文本摘要的输出结构。"""
+    title: str = Field(max_length=100)
+    summary: str = Field(min_length=50, max_length=500)
+    key_points: list[str] = Field(min_length=1, max_length=5)
+    sentiment: Literal["positive", "negative", "neutral", "mixed"]
+
+
+def test_summary_properties(output: SummaryOutput, source_text: str) -> dict[str, bool]:
+    """
+    基于属性的测试：不检查输出等于什么，
+    检查输出是否满足一组必要属性。
+    
+    每个检查都是一个必要条件，不是充分条件。
+    但必要条件的交集可以构成一个有意义的质量约束。
+    """
+    return {
+        # 结构属性：类型系统已经保证
+        "valid_structure": True,  # Pydantic 解析成功即满足
+        
+        # 长度属性：摘要不应比原文长
+        "shorter_than_source": len(output.summary) < len(source_text),
+        
+        # 信息保留属性：关键点中的实体应出现在原文中
+        "key_points_grounded": all(
+            any(word in source_text.lower() for word in point.lower().split() if len(word) > 3)
+            for point in output.key_points
+        ),
+        
+        # 一致性属性：标题和摘要不应自相矛盾
+        # （这个检查是近似的，精确检查需要另一个 LLM 调用）
+        "title_summary_overlap": any(
+            word in output.summary.lower()
+            for word in output.title.lower().split()
+            if len(word) > 3
+        ),
+    }
+```
+
+**"bug 是可复现的"假设失效了。** 在确定性系统中，如果用户报告了一个问题，开发者可以用相同的输入复现它。在概率性系统中，同样的输入可能无法复现同样的输出。问题可能是"在 100 次调用中出现了 3 次"，而不是"每次都会出现"。这要求日志系统不仅记录输入和输出，还要记录所有影响采样的参数（temperature、seed、模型版本），以及尽可能多的中间状态（每一步的 top-k token 和概率）。
+
+**"代码没变，行为不应该变"假设失效了。** 在传统软件中，如果代码和配置都没有变更，系统行为不会改变。但 LLM 是外部依赖——模型提供商可以在不通知的情况下更新模型权重、调整推理参数、修改安全过滤规则。你的代码一行没改，但系统行为可能已经漂移了。这意味着持续监控不是可选的运维实践，而是系统正确性的必要条件。
+
+## 哪些工程原则变得更重要了
+
+与直觉相反，确定性假设的打破不仅没有削弱某些传统工程原则的价值，反而让它们变得前所未有地重要。
+
+**类型系统。** 当系统行为的不确定性增加时，能在编译期（定义期）确定的东西就更加珍贵。类型系统是确定性的最后堡垒：输出的结构可以通过类型定义来强制约束，即使输出的内容仍然是概率性的。一个返回 `SummaryOutput` 类型的 LLM 调用，至少保证输出是一个有 `title`、`summary`、`key_points`、`sentiment` 字段的结构——即便每个字段的具体内容每次不同。类型系统在确定性和概率性之间划了一条线：结构是确定性的，内容是概率性的。
+
+**契约式设计。** 前置条件、后置条件、不变量——契约式设计的三板斧在概率性系统中反而更有用。因为系统内部的行为不可预测，就更需要在系统边界上设置严格的契约。输入必须满足什么条件？输出必须满足什么约束？系统的哪些属性在任何情况下都必须保持？这些契约不能消除不确定性，但可以把不确定性约束在一个可管理的范围内。
+
+**可观测性。** 确定性系统的调试可以事后进行：复现问题，设置断点，逐步排查。概率性系统的调试必须基于运行时观测数据：日志、指标、链路追踪。因为问题不一定可复现，你需要在问题发生的当时就捕获足够的信息来做事后分析。可观测性从"有了更好"变成了"没有不行"。
+
+**防御式编程。** 在确定性系统中，如果你信任输入（已经过验证），你可以信任程序的每一步中间结果。在概率性系统中，即便输入是完美的，中间步骤（LLM 调用）的输出也是不可完全信任的。每一个 LLM 调用的输出都需要被验证后才能传递给下游。这不是过度防御，是合理的工程实践。
+
+```python
+from typing import TypeVar, Generic, Optional
+from dataclasses import dataclass
+
+T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class ValidatedOutput(Generic[T]):
+    """
+    LLM 输出的验证包装器。
+    
+    核心思想：LLM 的输出永远不应该被直接信任，
+    必须经过显式验证后才能进入下游处理。
+    
+    这和数据库输入的消毒（sanitization）是同一类实践，
+    只是验证的维度从"安全性"扩展到了"语义正确性"。
+    """
+    value: T
+    is_valid: bool
+    validation_checks: dict[str, bool]
+    confidence: Optional[float] = None  # 如果有模型自报的置信度
+    
+    @property
+    def failed_checks(self) -> list[str]:
+        return [k for k, v in self.validation_checks.items() if not v]
+    
+    def unwrap_or_raise(self) -> T:
+        """只有通过所有验证的输出才能被解包使用。"""
+        if not self.is_valid:
+            raise ValueError(
+                f"LLM 输出未通过验证。失败的检查项: {self.failed_checks}"
+            )
+        return self.value
+    
+    def unwrap_or_default(self, default: T) -> T:
+        """未通过验证时返回默认值，而不是使用不可靠的输出。"""
+        return self.value if self.is_valid else default
+```
+
+## 概率性的层级
+
+不是所有的不确定性都是同一种不确定性。区分不同层级的概率性，对工程决策有直接影响。
+
+**Token 级概率性。** 这是自回归生成的固有属性：每一步是一次采样。通过设置 temperature=0 可以接近消除（变成贪心解码），代价是丧失生成多样性。
+
+**语义级概率性。** 即使在贪心解码下，不同的 prompt 措辞仍可能导致不同的输出语义。这种概率性不是来自采样随机性，而是来自 prompt 到语义的映射本身是多对多的。
+
+**模型级概率性。** 模型版本更新、权重微调、安全策略变更——这些外部因素会改变模型的概率分布，从而在代码完全不变的情况下改变系统行为。
+
+**系统级概率性。** 当多个 LLM 调用串联时，每一步的概率性会叠加。如果单步的"可靠率"是 95%，三步串联的可靠率就降到 85.7%，五步串联降到 77.4%。这不是悲观估计，是概率论的基本推论。
+
+```python
+def cascading_reliability(
+    step_reliability: float,
+    n_steps: int,
+) -> dict[str, float]:
+    """
+    多步 LLM 调用的级联可靠性。
+    
+    假设各步独立（实际上通常不独立，但独立假设提供了一个下界），
+    n 步串联的系统可靠性 = 单步可靠性的 n 次方。
+    
+    这个简单的计算解释了为什么复杂的 Agent 编排
+    比单次 LLM 调用脆弱得多。
+    """
+    system_reliability = step_reliability ** n_steps
+    
+    # 要达到 99% 的系统可靠性，单步需要多高的可靠性？
+    required_step_reliability = 0.99 ** (1 / n_steps)
+    
+    return {
+        "step_reliability": step_reliability,
+        "n_steps": n_steps,
+        "system_reliability": round(system_reliability, 4),
+        "required_for_99pct_system": round(required_step_reliability, 4),
+        "reliability_loss_pct": round((1 - system_reliability / step_reliability) * 100, 1),
+    }
+
+
+# 单步可靠性 95% 的系统
+for n in [1, 3, 5, 10]:
+    result = cascading_reliability(0.95, n)
+    print(
+        f"{n} 步串联: 系统可靠性 {result['system_reliability']:.1%}, "
+        f"要达到 99% 系统可靠性需要单步 {result['required_for_99pct_system']:.4f}"
+    )
+
+# 输出:
+# 1 步串联: 系统可靠性 95.0%, 要达到 99% 系统可靠性需要单步 0.9900
+# 3 步串联: 系统可靠性 85.7%, 要达到 99% 系统可靠性需要单步 0.9967
+# 5 步串联: 系统可靠性 77.4%, 要达到 99% 系统可靠性需要单步 0.9980
+# 10 步串联: 系统可靠性 59.9%, 要达到 99% 系统可靠性需要单步 0.9990
+```
+
+这个计算直接指向一个架构原则：尽量减少 LLM 调用的串联深度。每增加一步，系统可靠性都在以指数速度下降。这不是一个可以通过"写更好的 prompt"来解决的问题——它是概率论的数学约束。当你看到一个需要 10 步 LLM 调用才能完成的工作流时，首先应该问的不是"每一步怎么优化"，而是"能不能把 10 步减到 3 步"。Strategy 大于 analysis。
+
+## 重新定义"正确"
+
+在确定性系统中，"正确"是一个二值概念：输出要么等于期望值，要么不等于。
+
+在概率性系统中，"正确"需要被重新定义为一个多维概念：
+
+**结构正确性：** 输出是否符合预定义的类型结构？这可以被类型系统完全保证，是确定性的。
+
+**语义正确性：** 输出的内容是否在语义上与预期一致？这只能被近似检查，是概率性的。
+
+**一致性：** 同一个输入在多次调用中的输出是否保持一致？这取决于采样策略和应用场景的要求。
+
+**忠实性：** 输出是否忠实于输入中提供的信息？模型是否在"编造"输入中不存在的内容？
+
+**安全性：** 输出是否满足安全约束？是否包含有害内容、隐私泄露、违规信息？
+
+每一个维度都需要独立的检查手段，每一个维度都有自己的置信水平和失败模式。把这些维度混为一谈（"输出好不好"），是概率性系统工程中最常见的认知错误。
+
+## 与第二章的衔接
+
+本文确立了一个基本事实：大模型引入的是语义层面的概率性，这种概率性不能被消除，只能被管理。
+
+管理概率性需要一套系统化的决策框架：什么时候接受不确定性，什么时候约束它，约束到什么程度，用什么手段。这正是第二章"不确定性与决策"的主题。
+
+从认识论到方法论的跨越发生在这个接缝处：认识到"大模型的输出是概率性的"是事实判断，"如何在概率性输出的条件下构建可靠系统"是方法论问题。前者是本章的结论，后者是第二章的起点。

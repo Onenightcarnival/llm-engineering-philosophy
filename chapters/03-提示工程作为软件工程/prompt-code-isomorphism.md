@@ -1,0 +1,351 @@
+# Prompt 与代码的同构性
+
+## 一个核心观察
+
+一段好的 prompt 和一段好的代码在结构上有什么共同点？
+
+表面上看，这两者使用不同的语言（自然语言 vs 编程语言），服务不同的执行者（LLM vs CPU），遵循不同的正确性标准（统计性的 vs 确定性的）。但如果剥开表面的差异，观察它们在结构层面的性质，会发现它们共享一组深层的设计原则——这组原则不是偶然的巧合，而是所有"向执行者传达意图的规格说明"都必须遵循的结构性约束。
+
+这个同构性的实践价值在于：它意味着软件工程几十年积累的设计原则——单一职责、关注点分离、最小惊讶、显式优于隐式——不是只适用于代码的"编程原则"，而是适用于所有精确沟通的"规格说明原则"。Prompt 是一种规格说明，因此这些原则同样适用。
+
+## 单一职责原则
+
+在代码中，单一职责原则（SRP）指一个函数或一个类应该只做一件事、只有一个变化的原因。违反 SRP 的代码不是不能工作，而是难以维护——修改一个功能可能意外地影响另一个功能。
+
+在 prompt 中，SRP 的对应形式是：一段 prompt 应该完成一个明确的任务。
+
+违反 SRP 的 prompt：
+
+```
+请分析以下客户邮件。首先判断邮件的情感倾向（正面/负面/中性），
+然后提取邮件中提到的产品名称，
+然后生成一段感谢客户反馈的回复邮件，
+最后给出处理优先级建议（高/中/低）。
+```
+
+这段 prompt 同时承担了四个不同的职责：情感分析、实体提取、回复生成、优先级判断。这四个任务有不同的失败模式、不同的质量标准、不同的变更频率。将它们打包在一个 prompt 中，意味着：
+
+- 优化情感分析的准确率可能影响回复生成的质量
+- 修改优先级判断的规则需要重新测试所有四个功能
+- 无法独立评估每个子任务的表现
+- 一个子任务的失败会导致整个输出不可用
+
+遵循 SRP 的 prompt 设计：
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+
+class SentimentAnalysis(BaseModel):
+    """职责：判断情感倾向。"""
+    sentiment: Literal["positive", "negative", "neutral"]
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class ProductExtraction(BaseModel):
+    """职责：提取产品名称。"""
+    products: list[str] = Field(
+        description="邮件中提及的产品名称"
+    )
+
+
+class PriorityAssessment(BaseModel):
+    """职责：判断处理优先级。"""
+    priority: Literal["high", "medium", "low"]
+    reason: str = Field(description="优先级判断的依据")
+
+
+class ReplyDraft(BaseModel):
+    """职责：生成回复。"""
+    subject: str = Field(description="回复邮件的主题")
+    body: str = Field(
+        description="基于情感判断和产品信息，生成恰当的回复"
+    )
+```
+
+每个类型定义承担一个职责。它们可以被独立测试、独立优化、独立复用。需要将它们组合时，可以通过嵌套来表达组合关系：
+
+```python
+class CustomerEmailAnalysis(BaseModel):
+    """组合四个独立职责的完整分析。"""
+    sentiment: SentimentAnalysis
+    products: ProductExtraction
+    priority: PriorityAssessment
+    reply: ReplyDraft = Field(
+        description="基于上述 sentiment 和 products 的分析结果，"
+                    "生成恰当的客户回复"
+    )
+```
+
+注意 `reply` 字段的描述显式引用了 `sentiment` 和 `products`——这是依赖关系的声明，不是过程描述。组合不是把四段 prompt 拼接在一起，而是通过类型组合和字段引用来建立结构化的关系。
+
+## 关注点分离
+
+关注点分离（Separation of Concerns）是 SRP 的推广：不仅每个模块应该做一件事，而且不同层面的关注点不应该混杂在一起。
+
+在代码中，典型的关注点分离包括：业务逻辑与 UI 分离，数据访问与业务规则分离，配置与实现分离。
+
+在 prompt 中，需要分离的关注点包括：
+
+**内容与格式的分离。** "分析文本的情感"是内容关注点。"输出为 JSON，包含 sentiment 和 confidence 字段"是格式关注点。在自然语言 prompt 中，这两者通常混杂在一起。在声明式 prompt 中，内容关注点由字段描述承担，格式关注点由类型系统承担——两者自然分离。
+
+**任务逻辑与错误处理的分离。** "提取产品名称"是任务逻辑。"如果没有找到产品名称，返回空列表而不是编造一个"是错误处理逻辑。在自然语言 prompt 中，这两者混杂在同一段文字中。在声明式 prompt 中，任务逻辑由字段定义承载，错误处理由类型约束（`Optional`、`default`、`min_length=0`）和验证逻辑承载。
+
+**约束与实现的分离。** "年份在 2000-2030 之间"是约束。"怎么从文本中提取年份"是实现。在自然语言 prompt 中，约束通常以条件句的形式嵌入在实现指令中（"提取年份，注意年份应该在 2000-2030 之间"）。在声明式 prompt 中，约束由 `Field(ge=2000, le=2030)` 独立表达，与"怎么提取"完全分离。
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
+
+
+# 关注点分离的示例：投资报告分析
+
+# 关注点 1：数据提取（纯事实，无判断）
+class FinancialData(BaseModel):
+    company_name: str
+    ticker: Optional[str] = Field(
+        default=None, 
+        description="股票代码（如有）"
+    )
+    revenue_millions: Optional[float] = Field(
+        default=None, gt=0,
+        description="营收（百万美元），原文未提及则为 null"
+    )
+    year: Optional[int] = Field(
+        default=None, ge=2000, le=2030
+    )
+
+
+# 关注点 2：定性分析（需要判断，有不确定性）
+class QualitativeAssessment(BaseModel):
+    market_position: Literal["leader", "challenger", "niche", "unclear"] = Field(
+        description="基于报告内容判断的市场地位"
+    )
+    risk_factors: list[str] = Field(
+        min_length=0, max_length=5,
+        description="报告中提及的主要风险因素"
+    )
+    confidence: float = Field(
+        ge=0.0, le=1.0,
+        description="对以上判断的置信度"
+    )
+
+
+# 关注点 3：结论生成（综合前两个关注点）
+class InvestmentReport(BaseModel):
+    data: FinancialData = Field(description="从报告中提取的财务数据")
+    assessment: QualitativeAssessment = Field(
+        description="基于上述 data 的定性评估"
+    )
+    summary: str = Field(
+        max_length=500,
+        description="综合 data 和 assessment，给出投资视角的简要总结"
+    )
+```
+
+这个设计的关键在于：`FinancialData` 和 `QualitativeAssessment` 的约束标准不同。数据提取的正确性是可以用事实核查来验证的（营收数字对不对）。定性评估的"正确性"是统计性的（市场地位的判断合不合理）。如果将它们混在一个扁平结构中，就无法为不同的关注点设定不同的质量标准和验证策略。
+
+## 最小惊讶原则
+
+最小惊讶原则（Principle of Least Astonishment）在代码中指：系统的行为应该符合用户的合理预期。一个名为 `get_user` 的函数不应该在获取用户信息的同时删除缓存。一个名为 `save` 的方法应该是幂等的。
+
+在 prompt 中，最小惊讶原则有两层含义。
+
+**对 LLM 的最小惊讶：字段名和描述应该准确地反映期望的内容。** LLM 根据字段名和描述来推断应该生成什么内容。如果一个字段名为 `summary` 但描述要求"列出所有数据点"，LLM 会感到"困惑"——更准确地说，字段名和描述在概率空间中指向不同的方向，导致输出的不确定性增加。
+
+```python
+# 违反最小惊讶原则
+class Confusing(BaseModel):
+    summary: str = Field(
+        description="详细列出文本中的所有数据点及其来源"
+    )
+    # "summary" 暗示简短概括，description 要求详细列举——矛盾
+
+# 遵循最小惊讶原则
+class Clear(BaseModel):
+    data_points: list[str] = Field(
+        description="文本中的所有数据点及其来源"
+    )
+    summary: str = Field(
+        description="基于上述 data_points，简短概括核心发现"
+    )
+```
+
+**对维护者的最小惊讶：prompt 的结构应该可预测。** 字段的顺序应该遵循自然的思维流程（先观察、再分析、最后结论），而不是按照某种"优化过"但反直觉的顺序排列。[第三章已有文章](declarative-chain-of-thought.md)中对字段顺序与推理路径的讨论，本质上就是最小惊讶原则在声明式 prompt 中的具体化。
+
+## 显式优于隐式
+
+Python 之禅的第二条：Explicit is better than implicit. 这条原则在 prompt 设计中的重要性比在普通代码中更高——因为 prompt 的执行者（LLM）对隐式约定的理解是不可靠的。
+
+在代码中，隐式约定可以通过工具来弥补。未声明的类型可以被类型推断引擎推断出来。未显式调用的初始化方法可以被框架自动调用。隐式的导入可以被 IDE 自动补全。
+
+在 prompt 中，隐式约定没有任何弥补机制。模型要么"猜对了"隐含的意图，要么"猜错了"——而调用者无法区分这两种情况，直到检查输出。
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
+# 隐式依赖：bad
+class ImplicitDependency(BaseModel):
+    analysis: str = Field(description="分析文本内容")
+    recommendation: str = Field(description="给出建议")
+    # recommendation 依赖 analysis 的结果，但这个依赖是隐式的。
+    # LLM 可能独立于 analysis 来生成 recommendation。
+
+
+# 显式依赖：good
+class ExplicitDependency(BaseModel):
+    analysis: str = Field(description="分析文本内容")
+    recommendation: str = Field(
+        description="基于上述 analysis 的结论，给出具体的改进建议"
+    )
+    # 依赖关系被显式声明：recommendation 基于 analysis。
+    # LLM 在生成 recommendation 时会参考已生成的 analysis。
+```
+
+这个差异看似微小，但在复杂的多字段结构中，隐式依赖会导致不可预测的行为。一个有 10 个字段的 Pydantic 模型，如果字段之间的依赖关系没有在描述中显式声明，LLM 可能以任意方式"自由发挥"字段之间的关系——有时候碰巧正确，有时候完全偏离预期。
+
+## DRY 原则的重新审视
+
+DRY（Don't Repeat Yourself）原则在代码中是金科玉律：同一个逻辑不应该出现在两个地方。但在 prompt 设计中，DRY 需要被重新审视。
+
+在代码中，重复是有害的，因为修改一处时忘记修改另一处会导致不一致。在 prompt 中，适度的重复可能是有益的——因为 LLM 的注意力机制不保证均匀分配。关键约束在 prompt 中出现两次（一次在全局指令中，一次在相关字段的描述中），可以增加 LLM 遵循约束的概率。
+
+但声明式 prompt 用不同的方式解决了这个问题。
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+
+# 在自然语言 prompt 中需要重复强调的约束：
+# "情感只能是 positive/negative/neutral（请务必只选择这三个之一，
+#  不要输出其他值，情感判断的结果只能是 positive、negative 或 neutral）"
+
+# 在声明式 prompt 中，一次声明即可：
+class Result(BaseModel):
+    sentiment: Literal["positive", "negative", "neutral"]
+    # Literal 类型已经将约束精确编码了。
+    # 不需要重复——类型系统保证了约束只有一个权威来源。
+```
+
+DRY 的真正目标不是消除文字上的重复，而是确保每个约束只有一个权威来源（Single Source of Truth）。在自然语言 prompt 中，重复的自然语言描述都是"非权威的"——它们依赖 LLM 的解读。在声明式 prompt 中，类型定义是权威来源，`Field` 描述是辅助说明。当两者矛盾时，类型系统的约束优先（因为它是在验证层面被强制执行的）。
+
+## 接口与实现的分离
+
+代码设计的一个核心原则是接口与实现分离：调用者只需要知道函数做什么（接口），不需要知道函数怎么做（实现）。这个分离使得实现可以在不影响调用者的情况下被修改。
+
+在 prompt 中，接口与实现的分离对应的是：调用者需要知道 prompt 产出什么（输出结构），不需要知道 LLM 如何产出（推理过程）。
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+
+class TranslationResult(BaseModel):
+    """
+    翻译服务的接口定义。
+    
+    调用者知道的：给定源文本和目标语言，会得到一个翻译结果。
+    调用者不知道（也不需要知道）的：
+    - LLM 是先理解语义再翻译，还是直接做 token 映射
+    - 中间是否经过了某种"思考"过程
+    - 特定的 prompt 指令是什么
+    
+    这个分离使得 prompt 的内部优化不影响调用者。
+    """
+    source_language: str = Field(description="源语言")
+    target_language: str = Field(description="目标语言")
+    translated_text: str = Field(description="翻译结果")
+    quality_indicators: list[str] = Field(
+        max_length=3,
+        description="翻译中需要注意的质量问题（如有歧义的术语、文化差异等）"
+    )
+```
+
+这个结构定义是调用者和 prompt 之间的契约。prompt 的内部可以使用 few-shot 示例、可以使用 system message 设定角色、可以使用 chain-of-thought 引导推理——这些都是"实现细节"，不改变接口。当需要从 GPT-4 切换到 Claude 时，只要输出仍然符合 `TranslationResult` 的约束，调用者的代码不需要修改。
+
+这和传统软件工程中通过接口解耦实现的模式完全一致。区别只在于：传统代码的接口由类型签名保证，prompt 的"接口"由 Pydantic 验证保证。保证的强度不同（编译时 vs 运行时），但架构原则是相同的。
+
+## 同构性的边界
+
+Prompt 和代码的同构性不是无限的。它有清晰的边界，识别这些边界比识别同构性本身更重要。
+
+**确定性 vs 概率性。** 代码的执行是确定性的——同一个输入总是产生同一个输出。prompt 的执行是概率性的——同一个 prompt 的多次调用产生不同的输出。这意味着所有依赖确定性的代码设计原则（如幂等性、可重现性）在 prompt 中需要被重新定义。一个"好的" prompt 不是产生"正确的输出"的 prompt，而是产生"输出分布的统计性质在可接受范围内"的 prompt。
+
+**静态分析的极限。** 代码的很多质量属性可以通过静态分析来保障——类型正确性、死代码检测、循环复杂度。prompt 的质量属性（清晰性、无歧义性、完备性）目前无法被自动化工具检查。可以检查的是 prompt 的输出结构（通过 Pydantic 验证），但 prompt 文本本身的质量只能通过人工审查或 LLM 辅助审查来评估。
+
+**组合的不可预测性。** 代码的组合是确定性的——`f(g(x))` 的行为完全由 `f`、`g` 和 `x` 决定。prompt 的组合不具备这个性质——将两段都"工作良好"的 prompt 拼接在一起，效果不等于两者分别执行的组合。这是因为 LLM 的注意力机制会在整个输入上进行全局计算，拼接后的 prompt 可能产生意想不到的注意力交互。声明式方法通过类型组合（而非字符串拼接）来实现组合，在一定程度上缓解了这个问题——但不能完全消除。
+
+```python
+from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass(frozen=True)
+class IsomorphismBoundary:
+    """Prompt 与代码同构性的边界。"""
+    principle: str
+    code_behavior: str
+    prompt_behavior: str
+    boundary_type: Literal[
+        "same",           # 行为相同
+        "weakened",       # 原则适用但约束力减弱
+        "redefined",      # 原则需要重新定义
+        "inapplicable",   # 原则不适用
+    ]
+
+
+BOUNDARIES = [
+    IsomorphismBoundary(
+        principle="单一职责",
+        code_behavior="一个函数做一件事",
+        prompt_behavior="一个类型定义对应一个任务",
+        boundary_type="same",
+    ),
+    IsomorphismBoundary(
+        principle="显式优于隐式",
+        code_behavior="类型注解、显式参数",
+        prompt_behavior="字段描述中的显式依赖声明",
+        boundary_type="same",
+    ),
+    IsomorphismBoundary(
+        principle="幂等性",
+        code_behavior="同一输入总是同一输出",
+        prompt_behavior="同一 prompt 产生输出的分布是稳定的（但单次输出不确定）",
+        boundary_type="redefined",
+    ),
+    IsomorphismBoundary(
+        principle="可组合性",
+        code_behavior="f(g(x)) 的行为完全可预测",
+        prompt_behavior="类型组合比字符串拼接更可预测，但仍有交互效应",
+        boundary_type="weakened",
+    ),
+    IsomorphismBoundary(
+        principle="静态分析",
+        code_behavior="类型检查、死代码检测、复杂度分析",
+        prompt_behavior="只能检查输出结构，无法静态检查 prompt 文本的质量",
+        boundary_type="weakened",
+    ),
+    IsomorphismBoundary(
+        principle="性能可预测性",
+        code_behavior="时间复杂度可以分析",
+        prompt_behavior="输出长度（影响延迟和成本）部分取决于 LLM 的行为",
+        boundary_type="weakened",
+    ),
+]
+```
+
+## 同构性的工程启示
+
+承认 prompt 和代码的同构性，不是一个学术练习，而是一个有直接操作含义的认知转换。
+
+如果 prompt 遵循与代码相同的设计原则，那么：
+
+**prompt review 可以复用 code review 的标准。** 审查一段 prompt 时，可以检查它是否遵循了 SRP（一段 prompt 做一件事）、是否有清晰的关注点分离（数据提取 vs 判断 vs 生成）、是否遵循了最小惊讶原则（字段名准确反映内容）、是否显式声明了依赖关系。这些标准不需要重新发明——它们就是 code review 的标准。
+
+**prompt 的设计模式可以从代码的设计模式迁移。** 策略模式对应不同任务类型使用不同的 Pydantic 模型。模板方法模式对应基础结构定义加上可定制的字段描述。装饰器模式对应在基础模型外包裹验证层和降级逻辑。这些迁移不需要生搬硬套——结构性同构保证了迁移的合理性。
+
+**团队的 prompt 编写能力可以通过代码训练来提升。** 一个深刻理解代码设计原则的工程师，在转向 prompt 设计时有天然的优势——他已经内化了 SRP、关注点分离、显式依赖等原则。需要做的只是学习这些原则在 prompt 领域的具体表达形式。这比从零开始学习"prompt 技巧"要高效得多，因为原则是通用的，只有表达形式是领域特定的。

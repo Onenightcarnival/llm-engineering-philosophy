@@ -16,14 +16,28 @@
 
 从计算理论和语言哲学的角度理解大模型到底是什么。自回归生成的本质、语言作为接口的含义、确定性与概率性的根本张力。全书的哲学地基。
 
+- [自回归生成的本质](chapters/01-认识论/autoregressive-generation.md)
+- [语言作为接口：比 API 更古老，比 API 更模糊](chapters/01-认识论/language-as-interface.md)
+- [确定性与概率性的根本张力](chapters/01-认识论/determinism-vs-probability.md)
+- [大模型不擅长什么](chapters/01-认识论/what-llms-cannot-do.md)
+
 ### [第二章 不确定性与决策](chapters/02-不确定性与决策/README.md)
 
 不确定性环境下的工程决策框架。Strategy 大于 analysis，知行合一，恐慌时刻的逆向思维，决策的数学结构。全书的方法论地基。
+
+- [Strategy 大于 Analysis：工程决策的第一原则](chapters/02-不确定性与决策/strategy-over-analysis.md)
+- [不确定性不是敌人，是约束条件](chapters/02-不确定性与决策/uncertainty-as-constraint.md)
+- [恐慌时刻的逆向工程](chapters/02-不确定性与决策/contrarian-engineering.md)
+- [知行合一：从设计到实现的一致性](chapters/02-不确定性与决策/design-implementation-consistency.md)
+- [决策的数学结构](chapters/02-不确定性与决策/decision-mathematics.md)
 
 ### [第三章 提示工程作为软件工程](chapters/03-提示工程作为软件工程/README.md)
 
 从命令式到声明式的范式跃迁，"Code as Prompt"的核心主张。提示工程不是手艺，是软件工程的一个分支。
 
+- [从命令式到声明式：软件工程史的一个切面](chapters/03-提示工程作为软件工程/imperative-to-declarative.md)
+- [Prompt 的可维护性问题](chapters/03-提示工程作为软件工程/prompt-maintainability.md)
+- [Prompt 与代码的同构性](chapters/03-提示工程作为软件工程/prompt-code-isomorphism.md)
 - [Declarative Chain-of-Thought: Engineering Principles of Code as Prompt](chapters/03-提示工程作为软件工程/declarative-chain-of-thought.md)
 
 ### [第四章 类型系统与契约](chapters/04-类型系统与契约/README.md)
