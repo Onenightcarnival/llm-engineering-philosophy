@@ -6,13 +6,20 @@ RAG（Retrieval-Augmented Generation）是 LLM 应用领域最被过度包装的
 
 剥开框架的外衣，RAG 的核心操作不过是：**在调用 LLM 之前，把相关信息塞进上下文。**
 
-RAG 的完整操作只有三步：
+```python
+def rag_in_ten_lines(query: str, documents: list[str]) -> str:
+    # 1. 检索：找到与查询相关的文档
+    relevant_docs = retrieve(query, documents, top_k=3)
 
-1. **检索。** 给定用户查询，从文档库中找到最相关的若干片段。
-2. **注入。** 将检索到的片段拼接为上下文，放入 prompt。
-3. **生成。** 调用 LLM，让它基于注入的上下文回答问题。
+    # 2. 增强：将检索结果注入上下文
+    context = "\n\n".join(relevant_docs)
+    prompt = f"根据以下参考资料回答问题。\n\n参考资料：\n{context}\n\n问题：{query}"
 
-后续的一切——向量数据库、embedding 模型、chunk 策略、reranking——都是对这三个步骤的优化，不是新增的步骤。
+    # 3. 生成：调用 LLM
+    return call_llm(prompt)
+```
+
+这十行代码包含了 RAG 的全部本质。后续的一切——向量数据库、embedding 模型、chunk 策略、reranking——都是对这三个步骤的优化，不是新增的步骤。
 
 理解这个本质的工程意义在于：它帮助你判断何时需要 RAG，何时不需要。如果你的"相关信息"可以通过简单的关键词匹配获取，你不需要向量检索。如果你的文档总量可以塞进一次上下文窗口，你不需要 RAG——直接把所有文档放进 prompt 就行。RAG 解决的是一个特定问题：**当相关信息的总量超过上下文窗口，且需要动态选择哪些信息放入上下文时。**
 
