@@ -118,15 +118,15 @@ awesome-llm-practice/
 ### 章节内文件约定
 
 每个章节目录下包含：
-- `README.md` -- 章节概述与文章索引
-- 一篇或多篇独立的 `.md` 文章
+- `00-概述.md` -- 章节概述与文章索引
+- 一篇或多篇独立的 `.md` 文章，按阅读顺序编号
 - 如有配套代码，放在同目录下的 `.py` 文件中，文件名与文章对应
 
 ### 文件命名
 
-- Markdown 文件使用英文命名，以连字符分隔，全小写。
-- 示例：`declarative-chain-of-thought.md`
-- Python 文件与对应的 Markdown 文件同名：`declarative-chain-of-thought.py`
+- Markdown 文件使用"序号-中文名"命名，序号两位数字，从 00 开始。
+- 示例：`00-概述.md`、`01-自回归生成的本质.md`、`02-语言作为接口.md`
+- Python 文件与对应的 Markdown 文件同名：`01-自回归生成的本质.py`
 
 ## 全书结构逻辑
 
