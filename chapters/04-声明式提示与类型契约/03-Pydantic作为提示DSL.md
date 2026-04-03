@@ -56,7 +56,7 @@ Python 生态中不缺数据定义工具：dataclass、TypedDict、attrs、marsh
 
 **Pydantic 的独特位置在于它同时覆盖了三个层面：** 类型检查（通过注解）、语义传递（通过 Field description 和 json_schema_extra）、运行时验证（通过 validator）。更关键的是，Pydantic v2 原生支持 JSON Schema 导出——`model.model_json_schema()` 直接生成符合 JSON Schema 规范的结构描述，这正是主流 LLM API（OpenAI、Anthropic）所接受的 structured output 格式。
 
-从框架设计的角度看，Pydantic 的定位恰好处于"类型系统"和"运行时验证"的交汇处。这个定位在传统 Web 开发中解决的是 API 输入验证问题；在 LLM 应用中，它解决的是一个结构同构的问题——约束不可信输出的结构和语义。
+从框架设计的角度看，Pydantic 的定位恰好处于"类型系统"和"运行时验证"的交汇处。这个定位在传统 Web 开发中解决的是 API 输入验证问题；在 LLM 应用中，它解决的是同一类问题——约束不可信输出的结构和语义。
 
 ## 结构即推理路径
 
