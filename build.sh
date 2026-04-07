@@ -38,15 +38,6 @@ echo "Found ${#sources[@]} files across ${#chapters[@]} chapters"
 # 共享输入
 inputs=(metadata.yaml "${sources[@]}")
 
-echo "Building EPUB..."
-pandoc "${inputs[@]}" \
-  --from markdown \
-  --toc --toc-depth=2 --number-sections \
-  --shift-heading-level-by=-1 \
-  --epub-chapter-level=1 \
-  --output "$OUTPUT_DIR/大模型应用开发的工程哲学.epub"
-echo "  -> $OUTPUT_DIR/大模型应用开发的工程哲学.epub"
-
 echo "Building PDF..."
 pandoc "${inputs[@]}" \
   --from markdown \
