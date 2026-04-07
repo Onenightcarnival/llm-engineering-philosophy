@@ -127,5 +127,10 @@ export default defineConfig({
       prev: '上一篇',
       next: '下一篇',
     },
+
+    footer: {
+      message: '采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans" target="_blank">CC BY-NC-SA 4.0</a> 许可协议',
+      copyright: 'Copyright © 2026 Chao Li',
+    },
   },
 })
