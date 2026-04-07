@@ -44,7 +44,8 @@
 ```
 awesome-llm-practice/
   CLAUDE.md                  -- 本文件
-  README.md                  -- 项目入口，书籍目录
+  README.md                  -- 项目入口，书籍目录（GitHub 仓库首页）
+  index.md                   -- VitePress 站点首页
   chapters/                  -- 各章节内容
     00-序章/                  -- 为什么写这本书
     01-认识论/                -- 大模型的本质与边界
@@ -55,6 +56,10 @@ awesome-llm-practice/
     06-测试评估与可观测性/      -- 不确定性系统的质量保障
     07-反模式与陷阱/           -- 值得警惕的实践
     08-终章/                  -- 软件工程的下一个形态
+  docs/.vitepress/           -- VitePress 配置与自定义主题
+  build.sh                   -- EPUB 电子书构建脚本（依赖 Pandoc）
+  metadata.yaml              -- 电子书元数据
+  .github/workflows/         -- GitHub Actions（自动部署 GitHub Pages）
 ```
 
 章节目录下包含 `00-概述.md`（章节概述与文章索引）和按阅读顺序编号的独立 `.md` 文章。Markdown 文件命名格式：`序号-中文名.md`，序号两位数字。
