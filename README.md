@@ -105,4 +105,4 @@ LLM 应用的结构设计与动态执行。RAG 的本质、Agent 的结构分解
 
 语言：中文为主。
 
-许可：见 [LICENSE](LICENSE)。
+许可：[CC BY-NC-SA 4.0](LICENSE)。
