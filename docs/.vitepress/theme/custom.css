@@ -1,0 +1,243 @@
+/* ==========================================================================
+   Anthropic-inspired design system for VitePress
+   Palette: warm cream background, rust accent, near-black text
+   ========================================================================== */
+
+/* ---------- Design Tokens ---------- */
+
+:root {
+  /* Brand / Accent — Anthropic rust/terracotta */
+  --vp-c-brand-1: #d97757;
+  --vp-c-brand-2: #c4684b;
+  --vp-c-brand-3: #b05a3f;
+  --vp-c-brand-soft: rgba(217, 119, 87, 0.14);
+
+  /* Backgrounds — warm cream */
+  --vp-c-bg: #f5f4ed;
+  --vp-c-bg-alt: #eae9e0;
+  --vp-c-bg-elv: #efede5;
+  --vp-c-bg-soft: #eae9e0;
+
+  /* Text */
+  --vp-c-text-1: #141413;
+  --vp-c-text-2: #4a4a48;
+  --vp-c-text-3: #7a7a77;
+
+  /* Dividers */
+  --vp-c-divider: #d6d4c8;
+  --vp-c-gutter: #d6d4c8;
+
+  /* Surface / Cards */
+  --vp-c-default-1: #d6d4c8;
+  --vp-c-default-2: #c8c6ba;
+  --vp-c-default-3: #bab8ad;
+  --vp-c-default-soft: rgba(214, 212, 200, 0.4);
+
+  /* Typography */
+  --vp-font-family-base: "Source Han Serif SC", "Noto Serif CJK SC",
+    "Source Serif Pro", Georgia, "Times New Roman", serif;
+  --vp-font-family-mono: "JetBrains Mono", "Fira Code", "Source Code Pro",
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* Layout — narrower content width for CJK reading comfort */
+  --vp-layout-max-width: 1120px;
+}
+
+/* ---------- Dark Mode Tokens ---------- */
+
+.dark {
+  --vp-c-brand-1: #e0916e;
+  --vp-c-brand-2: #d97757;
+  --vp-c-brand-3: #c4684b;
+  --vp-c-brand-soft: rgba(217, 119, 87, 0.16);
+
+  --vp-c-bg: #1a1a19;
+  --vp-c-bg-alt: #222221;
+  --vp-c-bg-elv: #252524;
+  --vp-c-bg-soft: #2a2a28;
+
+  --vp-c-text-1: #f5f4ed;
+  --vp-c-text-2: #b0afa8;
+  --vp-c-text-3: #7a7a77;
+
+  --vp-c-divider: #3a3a38;
+  --vp-c-gutter: #3a3a38;
+
+  --vp-c-default-1: #3a3a38;
+  --vp-c-default-2: #4a4a48;
+  --vp-c-default-3: #5a5a58;
+  --vp-c-default-soft: rgba(58, 58, 56, 0.4);
+}
+
+/* ---------- Typography ---------- */
+
+.vp-doc {
+  font-size: 17px;
+  line-height: 1.9;
+}
+
+.vp-doc p {
+  margin: 1.25em 0;
+}
+
+/* Headings: slightly tighter, heavier presence */
+.vp-doc h1 {
+  font-size: 1.85em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  margin-top: 2rem;
+}
+
+.vp-doc h2 {
+  font-size: 1.4em;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.4;
+  margin-top: 2.5rem;
+  padding-bottom: 0.4em;
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+/* Lists */
+.vp-doc ul,
+.vp-doc ol {
+  line-height: 1.85;
+}
+
+.vp-doc li + li {
+  margin-top: 0.35em;
+}
+
+/* Blockquotes — subtle left border with brand color */
+.vp-doc blockquote {
+  border-left: 3px solid var(--vp-c-brand-1);
+  color: var(--vp-c-text-2);
+  background: var(--vp-c-bg-soft);
+  padding: 0.8em 1.2em;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Inline code */
+.vp-doc :not(pre) > code {
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 3px;
+  padding: 0.15em 0.4em;
+  font-size: 0.88em;
+}
+
+/* Code blocks */
+.vp-doc div[class*="language-"] {
+  border-radius: 6px;
+  border: 1px solid var(--vp-c-divider);
+}
+
+/* Links — brand color, subtle underline */
+.vp-doc a {
+  color: var(--vp-c-brand-1);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 0.06em;
+}
+
+.vp-doc a:hover {
+  color: var(--vp-c-brand-2);
+  text-decoration-thickness: 0.1em;
+}
+
+/* Tables */
+.vp-doc table {
+  font-size: 0.92em;
+}
+
+.vp-doc tr {
+  border-color: var(--vp-c-divider);
+}
+
+.vp-doc th {
+  background: var(--vp-c-bg-soft);
+}
+
+/* ---------- Content Container Width ---------- */
+
+.VPDoc .container > .content {
+  max-width: 780px;
+}
+
+/* ---------- Navbar ---------- */
+
+.VPNav {
+  border-bottom: 1px solid var(--vp-c-divider) !important;
+}
+
+.VPNavBar .title {
+  font-family: var(--vp-font-family-base);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Sidebar ---------- */
+
+.VPSidebar {
+  font-size: 14px;
+}
+
+.VPSidebarItem .text {
+  line-height: 1.6;
+}
+
+/* ---------- Home Page ---------- */
+
+.VPHero .name {
+  font-family: var(--vp-font-family-base) !important;
+}
+
+.VPHero .tagline {
+  font-family: var(--vp-font-family-base) !important;
+  font-size: 1.15em !important;
+  line-height: 1.8 !important;
+  color: var(--vp-c-text-2) !important;
+}
+
+/* Brand button */
+.VPButton.brand {
+  background-color: var(--vp-c-brand-1) !important;
+  border-color: var(--vp-c-brand-1) !important;
+}
+
+.VPButton.brand:hover {
+  background-color: var(--vp-c-brand-2) !important;
+  border-color: var(--vp-c-brand-2) !important;
+}
+
+/* ---------- Outline / TOC ---------- */
+
+.VPDocAsideOutline .outline-link.active {
+  color: var(--vp-c-brand-1);
+}
+
+/* ---------- Scrollbar (subtle, warm) ---------- */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vp-c-divider);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vp-c-default-2);
+}
+
+/* ---------- Selection ---------- */
+
+::selection {
+  background: rgba(217, 119, 87, 0.25);
+}

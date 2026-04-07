@@ -30,6 +30,7 @@ export default defineConfig({
     sidebar: [
       {
         text: '序章：为什么写这本书',
+        collapsed: false,
         items: [
           { text: '概述', link: '/chapters/00-序章/00-概述' },
           { text: '不是又一本提示手册', link: '/chapters/00-序章/01-不是又一本提示手册' },
@@ -38,6 +39,7 @@ export default defineConfig({
       },
       {
         text: '第一章 认识论：大模型的本质与边界',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/01-认识论/00-概述' },
           { text: '一次一个 token', link: '/chapters/01-认识论/01-一次一个token' },
@@ -46,6 +48,7 @@ export default defineConfig({
       },
       {
         text: '第二章 不确定性与决策',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/02-不确定性与决策/00-概述' },
           { text: '战略大于分析', link: '/chapters/02-不确定性与决策/01-战略大于分析' },
@@ -54,6 +57,7 @@ export default defineConfig({
       },
       {
         text: '第三章 人机协作的软件过程',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/03-人机协作的软件过程/00-概述' },
           { text: 'AI 辅助编程的正确姿势', link: '/chapters/03-人机协作的软件过程/01-AI辅助编程的正确姿势' },
@@ -64,6 +68,7 @@ export default defineConfig({
       },
       {
         text: '第四章 声明式提示与类型契约',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/04-声明式提示与类型契约/00-概述' },
           { text: '从命令式到声明式', link: '/chapters/04-声明式提示与类型契约/01-从命令式到声明式' },
@@ -76,6 +81,7 @@ export default defineConfig({
       },
       {
         text: '第五章 架构与编排',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/05-架构与编排/00-概述' },
           { text: 'RAG 的本质', link: '/chapters/05-架构与编排/01-RAG的本质' },
@@ -88,6 +94,7 @@ export default defineConfig({
       },
       {
         text: '第六章 测试、评估与可观测性',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/06-测试评估与可观测性/00-概述' },
           { text: '不确定性系统的测试哲学', link: '/chapters/06-测试评估与可观测性/01-不确定性系统的测试哲学' },
@@ -98,6 +105,7 @@ export default defineConfig({
       },
       {
         text: '第七章 反模式与陷阱',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/07-反模式与陷阱/00-概述' },
           { text: '提示拼接的脆弱性', link: '/chapters/07-反模式与陷阱/01-提示拼接的脆弱性' },
@@ -109,6 +117,7 @@ export default defineConfig({
       },
       {
         text: '终章：软件工程的下一个形态',
+        collapsed: true,
         items: [
           { text: '概述', link: '/chapters/08-终章/00-概述' },
           { text: '范式转换的历史节奏', link: '/chapters/08-终章/01-范式转换的历史节奏' },
