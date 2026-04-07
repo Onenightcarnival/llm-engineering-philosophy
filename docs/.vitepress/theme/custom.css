@@ -33,14 +33,11 @@
   --vp-c-default-3: #bab8ad;
   --vp-c-default-soft: rgba(214, 212, 200, 0.4);
 
-  /* Typography */
-  --vp-font-family-base: "Source Han Serif SC", "Noto Serif CJK SC",
-    "Source Serif Pro", Georgia, "Times New Roman", serif;
+  /* Typography — round, clean sans-serif */
+  --vp-font-family-base: "Microsoft YaHei", Arial, "PingFang SC",
+    "Hiragino Sans GB", "Helvetica Neue", Helvetica, sans-serif;
   --vp-font-family-mono: "JetBrains Mono", "Fira Code", "Source Code Pro",
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-
-  /* Layout — narrower content width for CJK reading comfort */
-  --vp-layout-max-width: 1120px;
 }
 
 /* ---------- Dark Mode Tokens ---------- */
@@ -162,7 +159,7 @@
 /* ---------- Content Container Width ---------- */
 
 .VPDoc .container > .content {
-  max-width: 780px;
+  max-width: 100%;
 }
 
 /* ---------- Navbar ---------- */
@@ -189,12 +186,7 @@
 
 /* ---------- Home Page ---------- */
 
-.VPHero .name {
-  font-family: var(--vp-font-family-base) !important;
-}
-
 .VPHero .tagline {
-  font-family: var(--vp-font-family-base) !important;
   font-size: 1.15em !important;
   line-height: 1.8 !important;
   color: var(--vp-c-text-2) !important;
