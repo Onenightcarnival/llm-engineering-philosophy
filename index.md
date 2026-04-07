@@ -10,5 +10,5 @@ hero:
       link: /chapters/00-序章/00-概述
     - theme: alt
       text: GitHub
-      link: https://github.com/Onenightcarnival/awesome-llm-practice
+      link: https://github.com/Onenightcarnival/llm-engineering-philosophy
 ---
