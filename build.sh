@@ -35,21 +35,26 @@ fi
 
 echo "Found ${#sources[@]} files across ${#chapters[@]} chapters"
 
-# 通用 Pandoc 参数
-common_args=(
-  metadata.yaml
-  "${sources[@]}"
-  --from markdown
-  --toc
-  --toc-depth=2
-  --number-sections
-  --shift-heading-level-by=-1
-)
+# 共享输入
+inputs=(metadata.yaml "${sources[@]}")
 
 echo "Building EPUB..."
-pandoc "${common_args[@]}" \
+pandoc "${inputs[@]}" \
+  --from markdown \
+  --toc --toc-depth=2 --number-sections \
+  --shift-heading-level-by=-1 \
   --epub-chapter-level=1 \
-  --output "$OUTPUT_DIR/book.epub"
-echo "  -> $OUTPUT_DIR/book.epub"
+  --output "$OUTPUT_DIR/大模型应用开发的工程哲学.epub"
+echo "  -> $OUTPUT_DIR/大模型应用开发的工程哲学.epub"
+
+echo "Building PDF..."
+pandoc "${inputs[@]}" \
+  --from markdown \
+  --lua-filter=pdf-filter.lua \
+  --pdf-engine=typst \
+  -V template=book-conf.typst \
+  -M toc=false \
+  --output "$OUTPUT_DIR/大模型应用开发的工程哲学.pdf"
+echo "  -> $OUTPUT_DIR/大模型应用开发的工程哲学.pdf"
 
 echo "Done."

@@ -1,0 +1,105 @@
+// 书籍排版配置 — Pandoc Typst 模板
+#let conf(
+  title: none,
+  subtitle: none,
+  authors: (),
+  date: none,
+  lang: "zh",
+  region: "CN",
+  fontsize: 11pt,
+  papersize: "a4",
+  margin: (x: 2.5cm, y: 3cm),
+  section-numbering: none,
+  toc: false,
+  cols: 1,
+  doc,
+  ..args,
+) = {
+  // 页面设置（前置页无页码）
+  set page(
+    paper: papersize,
+    margin: margin,
+    numbering: none,
+  )
+
+  // 中文排版
+  set text(
+    font: ("PingFang SC",),
+    lang: lang,
+    region: region,
+    size: fontsize,
+  )
+  set par(
+    justify: true,
+    leading: 1.2em,
+    first-line-indent: 2em,
+  )
+
+  // 列表不缩进首行
+  show list: set par(first-line-indent: 0em)
+  show enum: set par(first-line-indent: 0em)
+
+  // 标题样式
+  set heading(numbering: section-numbering)
+
+  // 一级标题：章标题，前置分页
+  show heading.where(level: 1): it => {
+    pagebreak(weak: true)
+    v(3em)
+    text(size: 1.5em, weight: "bold")[#it]
+    v(1.5em)
+  }
+
+  // 二级标题
+  show heading.where(level: 2): it => {
+    v(1.2em)
+    text(size: 1.2em, weight: "bold")[#it]
+    v(0.6em)
+  }
+
+  // 代码块样式
+  show raw.where(block: true): set par(first-line-indent: 0em)
+  show raw.where(block: true): set text(size: 0.9em)
+
+  // === 封面 ===
+  {
+    // 隐藏书签标题
+    show heading: it => hide(it)
+    heading(level: 1, outlined: false, bookmarked: true)[封面]
+  }
+  v(1fr)
+  align(center)[
+    #text(size: 2em, weight: "bold")[#title]
+    #v(0.8em)
+    #if subtitle != none {
+      text(size: 1.2em, fill: luma(80))[#subtitle]
+    }
+    #v(2em)
+    #for author in authors {
+      text(size: 1.1em)[#author.name]
+    }
+  ]
+  v(1fr)
+  align(center)[
+    #text(size: 0.85em, fill: luma(120))[CC BY-NC-SA 4.0]
+  ]
+
+  // === 目录 ===
+  pagebreak()
+  {
+    show heading: it => hide(it)
+    heading(level: 1, outlined: false, bookmarked: true)[目录]
+  }
+  text(size: 1.5em, weight: "bold")[目录]
+  v(0.8em)
+  outline(
+    title: none,
+    depth: 3,
+    indent: 1.5em,
+  )
+
+  // === 正文（启用页码）===
+  set page(numbering: "1", number-align: center)
+  counter(page).update(1)
+  doc
+}
