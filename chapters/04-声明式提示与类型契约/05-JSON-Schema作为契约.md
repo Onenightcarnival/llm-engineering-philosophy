@@ -46,7 +46,7 @@ class ReviewAnalysis(BaseModel):
 
 调用 `ReviewAnalysis.model_json_schema()` 生成的 JSON Schema 包含了 `enum`（来自 Literal）、`minimum`/`maximum`（来自 ge/le）、`minItems`/`maxItems`（来自 min_length/max_length）等约束。这些约束在 Schema 层面是可机器验证的。
 
-但 Pydantic 的 `field_validator` 和 `model_validator` 不会出现在 JSON Schema 中——它们是 Python 运行时的逻辑，无法序列化为 Schema 约束。这意味着 JSON Schema 是 Pydantic 模型的一个"有损投影"：它保留了 Schema 词汇表能表达的约束（类型、枚举、值域范围），丢失了需要程序逻辑才能表达的约束（字段间关系、格式校验、业务规则）。
+但 Pydantic 的 `field_validator` 和 `model_validator` 不会出现在 JSON Schema 中——它们是 Python 运行时的逻辑，无法序列化为 Schema 约束。这意味着 JSON Schema 无法完整表达 Pydantic 模型的所有约束：它保留了 Schema 词汇表能表达的部分（类型、枚举、值域范围），丢失了需要程序逻辑才能表达的部分（字段间关系、格式校验、业务规则）。
 
 这个有损性标记了 JSON Schema 表达能力的上限。上限之内的约束交给 Schema 验证器，在 LLM 生成时就能强制执行；上限之外的约束交给 Pydantic 的运行时验证，在解析输出时执行。两层防线各司其职。
 
