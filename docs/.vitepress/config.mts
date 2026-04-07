@@ -104,7 +104,7 @@ export default defineConfig({
           { text: '模型选择的工程约束', link: '/chapters/07-反模式与陷阱/02-模型选择的工程约束' },
           { text: '能力边界的误判', link: '/chapters/07-反模式与陷阱/03-能力边界的误判' },
           { text: '把不确定性当缺陷', link: '/chapters/07-反模式与陷阱/04-把不确定性当缺陷' },
-          { text: '何时微调而非继续提示', link: '/chapters/07-反模式与陷阱/05-何时微调而非继续提示' },
+          { text: '何时从提示转向微调', link: '/chapters/07-反模式与陷阱/05-何时从提示转向微调' },
         ],
       },
       {
