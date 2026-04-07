@@ -98,8 +98,19 @@
     indent: 1.5em,
   )
 
-  // === 正文（启用页码）===
-  set page(numbering: "1", number-align: center)
+  // === 正文（启用页码 + 页脚版权）===
+  let copyright-notice = text(size: 0.75em, fill: luma(160))[
+    CC BY-NC-SA 4.0 · Chao Li
+  ]
+  set page(
+    footer: context {
+      align(center)[
+        #copyright-notice
+        #h(2em)
+        #counter(page).display("1")
+      ]
+    },
+  )
   counter(page).update(1)
   doc
 }
