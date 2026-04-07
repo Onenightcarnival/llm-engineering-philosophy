@@ -84,7 +84,15 @@
     #text(size: 0.85em, fill: luma(120))[CC BY-NC-SA 4.0]
   ]
 
+  // 版权声明（目录页和正文页共用）
+  let copyright-notice = text(size: 0.75em, fill: luma(160))[
+    CC BY-NC-SA 4.0 · Chao Li
+  ]
+
   // === 目录 ===
+  set page(
+    footer: align(center)[#copyright-notice],
+  )
   pagebreak()
   {
     show heading: it => hide(it)
@@ -98,10 +106,7 @@
     indent: 1.5em,
   )
 
-  // === 正文（启用页码 + 页脚版权）===
-  let copyright-notice = text(size: 0.75em, fill: luma(160))[
-    CC BY-NC-SA 4.0 · Chao Li
-  ]
+  // === 正文（页码 + 版权）===
   set page(
     footer: context {
       align(center)[
