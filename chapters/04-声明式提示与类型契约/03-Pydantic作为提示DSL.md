@@ -46,7 +46,7 @@ class SentimentAnalysis(BaseModel):
 
 三层结构的组合效果是：一个 Pydantic 模型同时充当了类型定义、prompt 指令和输出验证器。一处定义，三处生效。
 
-## 为什么是 Pydantic 而非其他方案
+## 为什么选择 Pydantic
 
 Python 生态中不缺数据定义工具：dataclass、TypedDict、attrs、marshmallow、甚至原生的 dict。选择 Pydantic 是工程判断。
 
@@ -117,4 +117,4 @@ Pydantic 作为 prompt DSL 有明确的适用边界。
 
 **Description 的质量仍然是手艺。** 虽然 Pydantic 提供了结构化的框架，但每个 Field 的 description 仍然是自然语言，仍然依赖编写者的表达能力。结构可以工程化，语义说明的质量仍然需要经验和判断。
 
-这些局限性划定了 Pydantic 作为 prompt DSL 的适用边界。本章论证的命令式到声明式的跃迁是一个方向，不是一个终点。类型系统是这个方向上当前最好的工具，但工具有其边界——认识边界本身就是工程判断力的体现。
+这些局限性划定了 Pydantic 作为 prompt DSL 的适用边界。本章论证的命令式到声明式的跃迁是一个方向。类型系统是这个方向上当前最好的工具，但工具有其边界——认识边界本身就是工程判断力的体现。

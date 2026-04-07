@@ -46,9 +46,9 @@ class ReviewAnalysis(BaseModel):
 
 调用 `ReviewAnalysis.model_json_schema()` 生成的 JSON Schema 包含了 `enum`（来自 Literal）、`minimum`/`maximum`（来自 ge/le）、`minItems`/`maxItems`（来自 min_length/max_length）等约束。这些约束在 Schema 层面是可机器验证的。
 
-但 Pydantic 的 `field_validator` 和 `model_validator` 不会出现在 JSON Schema 中——它们是 Python 运行时的逻辑，无法序列化为声明式的 Schema 约束。这意味着 JSON Schema 是 Pydantic 模型的一个"有损投影"：它保留了声明式的部分，丢失了命令式的部分。
+但 Pydantic 的 `field_validator` 和 `model_validator` 不会出现在 JSON Schema 中——它们是 Python 运行时的逻辑，无法序列化为 Schema 约束。这意味着 JSON Schema 是 Pydantic 模型的一个"有损投影"：它保留了 Schema 词汇表能表达的约束（类型、枚举、值域范围），丢失了需要程序逻辑才能表达的约束（字段间关系、格式校验、业务规则）。
 
-这个有损性标记了声明式和命令式的天然边界。JSON Schema 能表达的，交给 Schema 验证器；JSON Schema 不能表达的，交给 Pydantic 的运行时验证。两层防线各司其职。
+这个有损性标记了 JSON Schema 表达能力的上限。上限之内的约束交给 Schema 验证器，在 LLM 生成时就能强制执行；上限之外的约束交给 Pydantic 的运行时验证，在解析输出时执行。两层防线各司其职。
 
 ## 契约的版本演化
 
@@ -58,7 +58,7 @@ class ReviewAnalysis(BaseModel):
 
 **Schema 变更如何测试？** Schema 变更不能只测试"新 Schema 能否解析新输出"，还需要测试"新 Schema 对应的 prompt 是否产生了预期质量的输出"。结构变化可能影响 LLM 的推理路径——在第一篇中讨论过，字段顺序就是推理顺序。
 
-**何时引入新版本而非修改现有版本？** 当 Schema 变更影响输出的语义结构时（不仅仅是新增字段），应该引入新版本。版本化的 Schema 让你可以同时运行新旧两个版本进行 A/B 对比，而不是在生产环境中进行不可回滚的切换。
+**何时应该引入新版本？** 当 Schema 变更影响输出的语义结构时（不仅仅是新增字段），应该引入新版本。版本化的 Schema 让你可以同时运行新旧两个版本进行 A/B 对比，而不是在生产环境中进行不可回滚的切换。
 
 ## Schema 作为文档
 
