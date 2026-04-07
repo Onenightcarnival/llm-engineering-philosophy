@@ -107,7 +107,7 @@ class KnowledgeGraph(BaseModel):
 
 `Entity` 和 `Relation` 是独立的、可复用的类型定义。`KnowledgeGraph` 通过组合它们构建更复杂的输出结构。每个子模型都可以独立测试、独立演进。这与软件工程中模块化设计的原则完全一致——高内聚、低耦合，通过接口（类型定义）而非实现（自然语言描述）来组合。
 
-## 局限性
+## 适用边界
 
 Pydantic 作为 prompt DSL 有明确的适用边界。
 

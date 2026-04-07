@@ -99,7 +99,7 @@ class Priority(str, Enum):
 
 选择标准很简单：如果枚举只用于约束 LLM 输出的取值范围，用 Literal；如果枚举值本身是业务领域的一等公民，用 Enum。
 
-## 局限性
+## 约束的前提
 
 Literal 类型的约束力依赖于 LLM API 的 structured output 功能。当 API 支持严格的 JSON Schema 模式（如 OpenAI 的 strict mode），Literal 约束在 API 层面被强制执行——LLM 的 token 采样被限制在枚举值对应的 token 序列上。当 API 不支持严格模式，Literal 约束只是 Schema 中的一个 `enum` 声明，LLM 可能生成枚举之外的值，需要在解析时捕获并重试。
 
