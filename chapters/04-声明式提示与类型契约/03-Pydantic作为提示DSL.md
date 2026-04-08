@@ -20,7 +20,7 @@
 
 一个 Pydantic 模型作为 prompt 规格说明时，它同时在三个层面发挥作用。
 
-**类型注解是约束层。** `name: str`、`score: float`、`tags: list[str]` ——这些类型注解定义了 LLM 输出的结构约束。它们是契约。当 LLM 的输出被解析为 Pydantic 模型时，任何违反类型约束的值都会被拒绝。这种拒绝发生在运行时，但约束的定义发生在编码时——这意味着它可以被代码审查、静态分析和版本控制覆盖。
+**类型注解是约束层。** `name: str`、`score: float`、`tags: list[str]` ——这些类型注解定义了 LLM 输出的结构约束。它们是契约。当 LLM 的输出被解析为 Pydantic 模型时，任何违反类型约束的值都会被拒绝。拒绝发生在运行时，约束的定义却在编码时——代码审查、静态分析和版本控制都能覆盖到。
 
 **Field description 是语义层。** 这是 Pydantic 模型作为 prompt DSL 最关键的特性。
 
@@ -56,7 +56,7 @@ Python 生态中不缺数据定义工具：dataclass、TypedDict、attrs、marsh
 
 **Pydantic 的独特位置在于它同时覆盖了三个层面：** 类型检查（通过注解）、语义传递（通过 Field description 和 json_schema_extra）、运行时验证（通过 validator）。更关键的是，Pydantic v2 原生支持 JSON Schema 导出——`model.model_json_schema()` 直接生成符合 JSON Schema 规范的结构描述，这正是主流 LLM API（OpenAI、Anthropic）所接受的 structured output 格式。
 
-从框架设计的角度看，Pydantic 的定位恰好处于"类型系统"和"运行时验证"的交汇处。这个定位在传统 Web 开发中解决的是 API 输入验证问题；在 LLM 应用中，它解决的是同一类问题——约束不可信输出的结构和语义。
+框架设计层面看，Pydantic 的定位恰好处于"类型系统"和"运行时验证"的交汇处。这个定位在传统 Web 开发中解决的是 API 输入验证问题；在 LLM 应用中，它解决的是同一类问题——约束不可信输出的结构和语义。
 
 ## 结构即推理路径
 

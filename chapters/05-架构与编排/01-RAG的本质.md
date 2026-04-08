@@ -2,7 +2,7 @@
 
 ## 剥开包装
 
-RAG（Retrieval-Augmented Generation）是 LLM 应用领域最被过度包装的概念之一。围绕它构建的框架、工具链和最佳实践文档，让人误以为 RAG 是一个需要专门技术栈来支撑的独立范式。
+RAG（Retrieval-Augmented Generation）是 LLM 应用领域包装最过度的概念之一。围绕它构建的框架、工具链和最佳实践文档，让人误以为 RAG 是一个需要专门技术栈来支撑的独立范式。
 
 剥开框架的外衣，RAG 的核心操作不过是：**在调用 LLM 之前，把相关信息塞进上下文。**
 
