@@ -72,11 +72,9 @@ export default defineConfig({
         items: [
           { text: '概述', link: '/chapters/04-声明式提示与类型契约/00-概述' },
           { text: '从命令式到声明式', link: '/chapters/04-声明式提示与类型契约/01-从命令式到声明式' },
-          { text: '提示与代码的同构性', link: '/chapters/04-声明式提示与类型契约/02-提示与代码的同构性' },
-          { text: 'Pydantic 作为提示 DSL', link: '/chapters/04-声明式提示与类型契约/03-Pydantic作为提示DSL' },
-          { text: 'Literal 类型与决策空间', link: '/chapters/04-声明式提示与类型契约/04-Literal类型与决策空间' },
-          { text: 'JSON Schema 作为契约', link: '/chapters/04-声明式提示与类型契约/05-JSON-Schema作为契约' },
-          { text: '验证器作为运行时不变量', link: '/chapters/04-声明式提示与类型契约/06-验证器作为运行时不变量' },
+          { text: 'Code as Prompt', link: '/chapters/04-声明式提示与类型契约/02-Code-as-Prompt' },
+          { text: 'Schema as Workflow', link: '/chapters/04-声明式提示与类型契约/03-Schema-as-Workflow' },
+          { text: '声明式提示的设计原则', link: '/chapters/04-声明式提示与类型契约/04-声明式提示的设计原则' },
         ],
       },
       {

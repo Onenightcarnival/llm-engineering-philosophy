@@ -44,15 +44,13 @@
 
 ### 第四章 声明式提示与类型契约
 
-从命令式到声明式的范式跃迁，"Code as Prompt"的核心主张。Pydantic 作为 Prompt DSL、JSON Schema 作为契约、Literal 类型作为决策空间的显式枚举。
+从命令式到声明式的范式跃迁，围绕声明式思维链的两个核心概念展开：Code as Prompt（代码即提示）和 Schema as Workflow（结构即工作流）。
 
 - [概述](chapters/04-声明式提示与类型契约/00-概述.md)
 - [从命令式到声明式：软件工程史的一个切面](chapters/04-声明式提示与类型契约/01-从命令式到声明式.md)
-- [提示与代码的同构性](chapters/04-声明式提示与类型契约/02-提示与代码的同构性.md)
-- [Pydantic 作为提示 DSL](chapters/04-声明式提示与类型契约/03-Pydantic作为提示DSL.md)
-- [Literal 类型与决策空间的显式化](chapters/04-声明式提示与类型契约/04-Literal类型与决策空间.md)
-- [JSON Schema：机器可读的契约](chapters/04-声明式提示与类型契约/05-JSON-Schema作为契约.md)
-- [验证器作为运行时不变量](chapters/04-声明式提示与类型契约/06-验证器作为运行时不变量.md)
+- [Code as Prompt](chapters/04-声明式提示与类型契约/02-Code-as-Prompt.md)
+- [Schema as Workflow](chapters/04-声明式提示与类型契约/03-Schema-as-Workflow.md)
+- [声明式提示的设计原则](chapters/04-声明式提示与类型契约/04-声明式提示的设计原则.md)
 
 ### 第五章 架构与编排
 
