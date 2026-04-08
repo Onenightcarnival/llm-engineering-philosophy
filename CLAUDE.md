@@ -57,8 +57,10 @@ awesome-llm-practice/
     07-反模式与陷阱/           -- 值得警惕的实践
     08-终章/                  -- 软件工程的下一个形态
   docs/.vitepress/           -- VitePress 配置与自定义主题
-  build.sh                   -- EPUB 电子书构建脚本（依赖 Pandoc）
+  build.sh                   -- PDF 构建脚本（Pandoc + Typst）
   metadata.yaml              -- 电子书元数据
+  pdf-filter.lua             -- Pandoc Lua 过滤器（PDF 构建用）
+  book-conf.typst            -- Typst 排版模板
   .github/workflows/         -- GitHub Actions（自动部署 GitHub Pages）
 ```
 
