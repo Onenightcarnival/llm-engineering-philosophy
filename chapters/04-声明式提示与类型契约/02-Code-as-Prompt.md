@@ -34,7 +34,7 @@ class SentimentAnalysis(BaseModel):
 
 每个 Field 的 description 就是传递给 LLM 的语义指令。它告诉 LLM 这个字段"应该是什么"——通过与类型注解绑定的精确说明，而非自然语言段落的模糊描述。语义说明和结构约束是同一个对象的两个面：不可能出现"描述说返回一个数字，但类型写了 str"这种不一致。
 
-**Validator 是不变量层。** `ge=0.0, le=1.0` 定义了值域约束，自定义的 `field_validator` 和 `model_validator` 定义了更复杂的不变量——字段之间的一致性、业务规则、格式的精确匹配。这一层的细节在[第四篇](04-声明式提示的设计原则.md)展开。
+**Validator 是不变量层。** `ge=0.0, le=1.0` 定义了值域约束，自定义的 `field_validator` 和 `model_validator` 定义了更复杂的不变量——字段之间的一致性、业务规则、格式的精确匹配。
 
 三层结构的组合效果是：一个 Pydantic 模型同时充当了类型定义、prompt 指令和输出验证器。一处定义，三处生效。
 

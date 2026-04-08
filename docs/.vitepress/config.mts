@@ -74,7 +74,6 @@ export default defineConfig({
           { text: '从命令式到声明式', link: '/chapters/04-声明式提示与类型契约/01-从命令式到声明式' },
           { text: 'Code as Prompt', link: '/chapters/04-声明式提示与类型契约/02-Code-as-Prompt' },
           { text: 'Schema as Workflow', link: '/chapters/04-声明式提示与类型契约/03-Schema-as-Workflow' },
-          { text: '声明式提示的设计原则', link: '/chapters/04-声明式提示与类型契约/04-声明式提示的设计原则' },
         ],
       },
       {

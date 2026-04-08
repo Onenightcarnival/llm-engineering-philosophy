@@ -50,7 +50,6 @@
 - [从命令式到声明式：软件工程史的一个切面](chapters/04-声明式提示与类型契约/01-从命令式到声明式.md)
 - [Code as Prompt](chapters/04-声明式提示与类型契约/02-Code-as-Prompt.md)
 - [Schema as Workflow](chapters/04-声明式提示与类型契约/03-Schema-as-Workflow.md)
-- [声明式提示的设计原则](chapters/04-声明式提示与类型契约/04-声明式提示的设计原则.md)
 
 ### 第五章 架构与编排
 
