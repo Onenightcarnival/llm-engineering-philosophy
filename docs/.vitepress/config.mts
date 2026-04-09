@@ -33,8 +33,8 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: '概述', link: '/chapters/00-序章/00-概述' },
-          { text: '不是又一本提示手册', link: '/chapters/00-序章/01-不是又一本提示手册' },
-          { text: '个人立场', link: '/chapters/00-序章/02-个人立场' },
+          { text: '不是又一本 prompt 手册', link: '/chapters/00-序章/01-不是又一本提示手册' },
+          { text: '个人立场声明', link: '/chapters/00-序章/02-个人立场' },
         ],
       },
       {
@@ -52,7 +52,7 @@ export default defineConfig({
         items: [
           { text: '概述', link: '/chapters/02-不确定性与决策/00-概述' },
           { text: '战略大于分析', link: '/chapters/02-不确定性与决策/01-战略大于分析' },
-          { text: '不确定性是约束条件', link: '/chapters/02-不确定性与决策/02-不确定性是约束条件' },
+          { text: '不确定性的约束结构', link: '/chapters/02-不确定性与决策/02-不确定性是约束条件' },
         ],
       },
       {
