@@ -45,7 +45,7 @@ pandoc "${inputs[@]}" \
   --pdf-engine=typst \
   -V template=book-conf.typst \
   -M toc=false \
-  --output "$OUTPUT_DIR/大模型应用开发的工程哲学.pdf"
-echo "  -> $OUTPUT_DIR/大模型应用开发的工程哲学.pdf"
+  --output "$OUTPUT_DIR/大模型应用的工程哲学.pdf"
+echo "  -> $OUTPUT_DIR/大模型应用的工程哲学.pdf"
 
 echo "Done."

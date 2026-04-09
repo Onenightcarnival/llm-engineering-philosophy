@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   lang: 'zh-CN',
-  title: '大模型应用开发的工程哲学',
+  title: '大模型应用的工程哲学',
   description: '当软件系统的核心组件从确定性函数变成概率性语言模型，软件工程的基本原则会发生什么变化，又有什么不会变。',
 
   base: '/llm-engineering-philosophy/',
