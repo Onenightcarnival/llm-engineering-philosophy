@@ -4,7 +4,7 @@
 
 传统的 LLM 应用开发中，prompt 和代码是两样独立的东西。prompt 是一段自然语言文本，代码是处理 LLM 输入输出的程序逻辑。两者之间的关系通过字符串拼接来建立——代码负责把 prompt 拼好发给 LLM，再把 LLM 的文本输出解析回程序能处理的数据结构。
 
-问题出在这个分离上：prompt 里说的和代码里期望的可能不一致。prompt 说"返回一个 JSON，包含 sentiment 字段"，但代码里解析的数据结构可能期望 `emotion` 字段。这类不一致在运行时才暴露，在开发阶段不可见。
+问题就在于 prompt 和代码是分开的：prompt 里说的和代码里期望的可能不一致。prompt 说"返回一个 JSON，包含 sentiment 字段"，但代码里解析的数据结构可能期望 `emotion` 字段。这类不一致在运行时才暴露，在开发阶段不可见。
 
 Code as Prompt 的核心主张是消除这个分离：用 Pydantic BaseModel 同时充当类型定义、语义指令和输出验证器。代码本身就是 prompt，不再需要一段独立的自然语言文本来描述输出格式。
 
@@ -12,7 +12,7 @@ Code as Prompt 的核心主张是消除这个分离：用 Pydantic BaseModel 同
 
 一个 Pydantic 模型作为 prompt 规格说明时，同时在三个层面发挥作用。
 
-**类型注解是约束层。** `name: str`、`score: float`、`tags: list[str]` ——这些类型注解定义了 LLM 输出的结构约束。当 LLM 的输出被解析为 Pydantic 模型时，任何违反类型约束的值都会被拒绝。拒绝发生在运行时，但约束在开发阶段就定义好了——代码审查、静态分析和版本控制都能覆盖到。
+**类型注解是约束层。** `name: str`、`score: float`、`tags: list[str]` ——这些类型注解定义了 LLM 输出的结构约束。当 LLM 的输出被解析为 Pydantic 模型时，任何违反类型约束的值都会被拒绝。虽然拒绝是在运行时发生的，但约束在开发阶段就写好了——代码审查、静态分析和版本控制都能覆盖到。
 
 **Field description 是语义层。** 这是 Pydantic 模型区别于普通数据类的关键特性。
 
@@ -40,9 +40,9 @@ class SentimentAnalysis(BaseModel):
 
 ## 为什么是 Pydantic
 
-Python 生态中不缺数据定义工具：dataclass、TypedDict、attrs、marshmallow。选择 Pydantic 是工程判断。
+Python 生态中不缺数据定义工具：dataclass、TypedDict、attrs、marshmallow。选 Pydantic 是一个工程选择，不是唯一解。
 
-**dataclass 缺少运行时验证。** dataclass 是类型注解的载体，但它不做运行时校验。对于 LLM 输出这种本质上不可信的外部输入，缺少运行时验证意味着把防线完全交给了下游代码。
+**dataclass 缺少运行时验证。** dataclass 是类型注解的载体，但它不做运行时校验。LLM 的输出本质上不可信。没有运行时验证，就等于把防线交给了下游代码。
 
 **TypedDict 是纯结构性的。** TypedDict 定义了字典的键类型，但没有 description、没有 validator、没有序列化逻辑。它是类型检查器的工具，不是运行时的工具。
 
