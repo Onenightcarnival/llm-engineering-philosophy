@@ -1,9 +1,20 @@
+<script setup>
+import { useData } from 'vitepress'
+
+const { lang } = useData()
+</script>
+
 <template>
   <div class="doc-footer-license">
-    <p>
+    <p v-if="lang === 'zh-CN'">
       采用
       <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>
       许可协议 | Copyright &copy; 2026 Chao Li
+    </p>
+    <p v-else>
+      Licensed under
+      <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>
+      | Copyright &copy; 2026 Chao Li
     </p>
   </div>
 </template>

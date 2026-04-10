@@ -1,0 +1,105 @@
+---
+originalLink: /chapters/04-声明式提示与类型契约/02-Code-as-Prompt
+---
+
+# Code as Prompt
+
+## The Code Is the Prompt
+
+In the traditional LLM application development model, the prompt and the code are two separate things. The prompt is a natural language text; the code is program logic that handles LLM input and output. The two are connected by string concatenation -- the code assembles the prompt and sends it to the LLM, then parses the LLM's text output back into data structures the program can work with.
+
+The problem is precisely that the prompt and the code are separate: what the prompt says and what the code expects may not agree. The prompt says "return a JSON with a sentiment field," but the data structure in the code expects an `emotion` field. This kind of inconsistency only surfaces at runtime -- it is invisible during development.
+
+The core claim of Code as Prompt is to eliminate this separation: use a Pydantic BaseModel to simultaneously serve as the type definition, semantic instruction, and output validator. The code itself is the prompt -- no separate natural language text is needed to describe the output format.
+
+## Three Semantic Layers
+
+When a Pydantic model serves as a prompt specification, it operates on three layers simultaneously.
+
+**Type annotations are the constraint layer.** `name: str`, `score: float`, `tags: list[str]` -- these type annotations define structural constraints on the LLM's output. When the LLM's output is parsed into a Pydantic model, any value that violates the type constraints is rejected. The rejection happens at runtime, but the constraints are written at development time -- code review, static analysis, and version control all have visibility.
+
+**Field description is the semantic layer.** This is the key feature that distinguishes Pydantic models from plain data classes.
+
+```python
+from pydantic import BaseModel, Field
+
+class SentimentAnalysis(BaseModel):
+    sentiment: str = Field(
+        description="The sentiment polarity of the text; must be one of positive, negative, or neutral"
+    )
+    confidence: float = Field(
+        description="Confidence score for the sentiment judgment, between 0.0 and 1.0",
+        ge=0.0, le=1.0
+    )
+    reasoning: str = Field(
+        description="The reasoning process behind the sentiment judgment; must cite specific evidence from the source text"
+    )
+```
+
+Each Field's description is a semantic instruction passed to the LLM. It tells the LLM what the field "should be" -- through a precise specification bound to the type annotation, not a vague description buried in a natural language paragraph. The semantic specification and the structural constraint are defined in the same place; it is impossible for the description to say "return a number" while the type says `str`.
+
+**Validators are the invariant layer.** `ge=0.0, le=1.0` defines value range constraints. Custom `field_validator` and `model_validator` define more complex invariants -- cross-field consistency, business rules, exact format matching.
+
+The combined effect of these three layers: a single Pydantic model simultaneously serves as a type definition, prompt instruction, and output validator. Define once, enforce in three places.
+
+## Why Pydantic
+
+Python has many data definition tools: dataclass, TypedDict, attrs, marshmallow. Choosing Pydantic is the result of engineering tradeoffs, not the only answer.
+
+**dataclass lacks runtime validation.** dataclass can carry type annotations, but it does not perform runtime validation. LLM output is inherently untrustworthy. Without runtime validation, you are handing the defense to downstream code.
+
+**TypedDict is purely structural.** TypedDict defines key types for a dictionary but has no description, no validator, no serialization logic. It is a tool for the type checker, not for runtime.
+
+**Pydantic does all three:** type checking (via annotations), semantic communication (via Field description), and runtime validation (via validators). Moreover, Pydantic v2 natively supports JSON Schema export -- `model.model_json_schema()` generates a JSON Schema-compliant structural description directly, which is exactly the structured output format accepted by mainstream LLM APIs (OpenAI, Anthropic).
+
+## From Pydantic to JSON Schema: The Projection
+
+There is a precise mapping between Pydantic models and JSON Schema. `model_json_schema()` projects a Pydantic model into JSON Schema, and this projection is lossy.
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class ReviewAnalysis(BaseModel):
+    sentiment: Literal["positive", "negative", "neutral"] = Field(
+        description="The sentiment polarity of the review"
+    )
+    score: float = Field(
+        description="Sentiment intensity score",
+        ge=0.0, le=1.0
+    )
+    key_phrases: list[str] = Field(
+        description="Key phrases supporting the sentiment judgment",
+        min_length=1, max_length=5
+    )
+```
+
+The JSON Schema generated by `model_json_schema()` includes `enum` (from Literal), `minimum`/`maximum` (from ge/le), and `minItems`/`maxItems` (from min_length/max_length). These constraints can be enforced at generation time by the LLM's structured output mechanism at the Schema level.
+
+But Pydantic's `field_validator` and `model_validator` do not appear in the JSON Schema -- they are Python runtime logic that cannot be serialized into Schema constraints. This is the upper bound of JSON Schema's expressiveness: constraints within that bound are enforced at LLM generation time; constraints beyond that bound are enforced by Pydantic's runtime validation when parsing the output. Two lines of defense, each with its own job.
+
+## Schema Is a Contract, Not Just a Format Requirement
+
+Most developers treat JSON Schema as an "output format requirement" -- telling the LLM "please return JSON in this format." But Schema can do more than that.
+
+A format requirement is one-sided: it only constrains the syntactic structure of the output. A contract is bidirectional: it simultaneously constrains the structure and semantics of the output, and the caller also makes an implicit promise -- "I will parse your output according to this Schema; if your output conforms to the Schema, I guarantee I can process it correctly."
+
+Designing Schema as a contract changes the mindset. Treating it as just a format requirement leads to stuffing as many constraints as possible into it, trying to compensate for semantic ambiguity with format restrictions. Designing it as a contract leads to a clear distinction among three categories of constraints:
+
+1. **Structural constraints** (field names, types, nesting relationships) -- the core responsibility of a Schema, machine-verifiable with strict precision.
+2. **Value range constraints** (enum values, numeric ranges, string patterns) -- expressible by Schema, machine-verifiable.
+3. **Semantic constraints** (field meanings, business relationships between fields) -- carried by descriptions, inherently dependent on the LLM's "understanding," only weakly verifiable.
+
+Passing Schema validation only means the output's format and value ranges are correct. It does not mean the semantics are correct.
+
+## Applicability Boundaries
+
+Code as Prompt has clear boundaries of applicability.
+
+**Over-constraining creative tasks.** When a task demands open-ended output (literary creation, brainstorming, free-form conversation), forcing structured output suppresses LLM performance. Type systems are good at constraining, but constraints are not always desirable -- when the problem itself is ambiguous, overly precise constraints exclude correct answers.
+
+**Dependence on model capability.** Excessively deep nesting, too many fields, overly complex constraints -- all make it harder for the LLM to produce conforming output. The complexity of a Pydantic model should not exceed the capability range of the target model.
+
+**Description quality is still a craft.** Pydantic provides a structured framework, but each Field's description is still natural language, still dependent on the author's ability to express clearly. Structure can be engineered; the quality of semantic descriptions still requires experience and judgment.
+
+The next article discusses the other core concept of declarative chain-of-thought: [Schema as Workflow](03-schema-as-workflow.md) -- how the arrangement of fields in a Schema defines the LLM's reasoning path.

@@ -178,3 +178,9 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--vp-c-default-2);
 }
+
+/* ---------- Hide default VitePress language switcher ---------- */
+
+.VPFlyout:has([aria-label="Change language"]) {
+  display: none !important;
+}

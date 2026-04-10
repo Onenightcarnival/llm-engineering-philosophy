@@ -22,18 +22,33 @@
     numbering: none,
   )
 
-  // 中文排版
+  // 字体：中文用 PingFang SC，英文用系统默认衬线体
+  let body-font = if lang == "en" {
+    ("Georgia", "Palatino", "serif")
+  } else {
+    ("PingFang SC",)
+  }
+
   set text(
-    font: ("PingFang SC",),
+    font: body-font,
     lang: lang,
     region: region,
     size: fontsize,
   )
-  set par(
-    justify: true,
-    leading: 1.2em,
-    first-line-indent: 2em,
-  )
+
+  // 段落：中文首行缩进 2em，英文不缩进
+  if lang == "en" {
+    set par(
+      justify: true,
+      leading: 1.2em,
+    )
+  } else {
+    set par(
+      justify: true,
+      leading: 1.2em,
+      first-line-indent: 2em,
+    )
+  }
 
   // 列表不缩进首行
   show list: set par(first-line-indent: 0em)
@@ -65,7 +80,8 @@
   {
     // 隐藏书签标题
     show heading: it => hide(it)
-    heading(level: 1, outlined: false, bookmarked: true)[封面]
+    let cover-label = if lang == "en" { "Cover" } else { "封面" }
+    heading(level: 1, outlined: false, bookmarked: true)[#cover-label]
   }
   v(1fr)
   align(center)[
@@ -96,9 +112,11 @@
   pagebreak()
   {
     show heading: it => hide(it)
-    heading(level: 1, outlined: false, bookmarked: true)[目录]
+    let toc-label = if lang == "en" { "Table of Contents" } else { "目录" }
+    heading(level: 1, outlined: false, bookmarked: true)[#toc-label]
   }
-  text(size: 1.5em, weight: "bold")[目录]
+  let toc-title = if lang == "en" { "Table of Contents" } else { "目录" }
+  text(size: 1.5em, weight: "bold")[#toc-title]
   v(0.8em)
   outline(
     title: none,
