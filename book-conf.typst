@@ -24,7 +24,7 @@
 
   // 字体：中文用 PingFang SC，英文用系统默认衬线体
   let body-font = if lang == "en" {
-    ("Georgia", "Palatino", "serif")
+    ("Georgia", "Palatino", "Times New Roman")
   } else {
     ("PingFang SC",)
   }
