@@ -1,6 +1,6 @@
 [中文](README.md) | English
 
-# Engineering Philosophy of LLM Applications
+# LLM Engineering Philosophy
 
 > **Note:** This is a translation of the original Chinese work. The translation may contain inaccuracies. When in doubt, please refer to the [original Chinese version](README.md).
 

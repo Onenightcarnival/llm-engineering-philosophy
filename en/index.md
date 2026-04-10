@@ -1,7 +1,7 @@
 ---
 layout: home
 hero:
-  name: Engineering Philosophy of LLM Applications
+  name: LLM Engineering Philosophy
   text: ""
   tagline: When the core component of a software system shifts from deterministic functions to probabilistic language models, what changes in software engineering principles — and what stays the same.
   actions:
