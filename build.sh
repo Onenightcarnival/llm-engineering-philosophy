@@ -7,7 +7,7 @@ cd "$SCRIPT_DIR"
 OUTPUT_DIR="output"
 mkdir -p "$OUTPUT_DIR"
 
-# ---------- 中文构建 ----------
+# ---------- 章节目录 ----------
 
 zh_chapters=(
   "chapters/00-序章"
@@ -33,15 +33,7 @@ en_chapters=(
   "en/chapters/08-epilogue"
 )
 
-collect_sources() {
-  local -n _chapters=$1
-  local -n _sources=$2
-  for chapter in "${_chapters[@]}"; do
-    while IFS= read -r f; do
-      _sources+=("$f")
-    done < <(find "$chapter" -name '*.md' -maxdepth 1 | sort)
-  done
-}
+# ---------- 构建函数 ----------
 
 build_pdf() {
   local lang=$1
@@ -49,7 +41,15 @@ build_pdf() {
   local output_name=$3
   local filter=$4
   shift 4
-  local sources=("$@")
+  local chapters=("$@")
+
+  # 收集源文件
+  local sources=()
+  for chapter in "${chapters[@]}"; do
+    while IFS= read -r f; do
+      sources+=("$f")
+    done < <(find "$chapter" -name '*.md' -maxdepth 1 | sort)
+  done
 
   if [ ${#sources[@]} -eq 0 ]; then
     echo "Warning: no markdown files found for $lang, skipping" >&2
@@ -67,18 +67,9 @@ build_pdf() {
   echo "  -> $OUTPUT_DIR/$output_name"
 }
 
-# 收集中文源文件
-zh_sources=()
-collect_sources zh_chapters zh_sources
+# ---------- 构建 ----------
 
-# 收集英文源文件
-en_sources=()
-collect_sources en_chapters en_sources
-
-# 构建中文 PDF
-build_pdf "zh" "metadata.yaml" "大模型应用的工程哲学.pdf" "pdf-filter.lua" "${zh_sources[@]}"
-
-# 构建英文 PDF
-build_pdf "en" "metadata-en.yaml" "engineering-philosophy-of-llm-applications.pdf" "pdf-filter-en.lua" "${en_sources[@]}"
+build_pdf "zh" "metadata.yaml" "大模型应用的工程哲学.pdf" "pdf-filter.lua" "${zh_chapters[@]}"
+build_pdf "en" "metadata-en.yaml" "engineering-philosophy-of-llm-applications.pdf" "pdf-filter-en.lua" "${en_chapters[@]}"
 
 echo "Done."
