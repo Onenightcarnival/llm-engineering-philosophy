@@ -70,6 +70,6 @@ build_pdf() {
 # ---------- 构建 ----------
 
 build_pdf "zh" "metadata.yaml" "大模型应用的工程哲学.pdf" "pdf-filter.lua" "${zh_chapters[@]}"
-build_pdf "en" "metadata-en.yaml" "engineering-philosophy-of-llm-applications.pdf" "pdf-filter-en.lua" "${en_chapters[@]}"
+build_pdf "en" "metadata-en.yaml" "llm-engineering-philosophy.pdf" "pdf-filter-en.lua" "${en_chapters[@]}"
 
 echo "Done."
