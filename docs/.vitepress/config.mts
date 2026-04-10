@@ -243,7 +243,7 @@ export default defineConfig({
     en: {
       label: 'English',
       lang: 'en',
-      title: 'Engineering Philosophy of LLM Applications',
+      title: 'LLM Engineering Philosophy',
       description: 'When the core component of a software system shifts from deterministic functions to probabilistic language models, what changes in software engineering principles — and what stays the same.',
       themeConfig: {
         nav: enNav,
