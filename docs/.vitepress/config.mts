@@ -210,6 +210,7 @@ export default defineConfig({
   title: '大模型应用的工程哲学',
   description: '当软件系统的核心组件从确定性函数变成概率性语言模型，软件工程的基本原则会发生什么变化，又有什么不会变。',
 
+  appearance: 'force-dark',
   base: '/llm-engineering-philosophy/',
   srcDir: '..',
   outDir: '.vitepress/dist',

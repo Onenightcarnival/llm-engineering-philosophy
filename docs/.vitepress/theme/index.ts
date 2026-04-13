@@ -1,8 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
-import DocFooter from './DocFooter.vue'
 import Layout from './Layout.vue'
 import type { Theme } from 'vitepress'
-import './custom.css'
+import './styles/cosmic.css'
 
 export default {
   extends: DefaultTheme,
